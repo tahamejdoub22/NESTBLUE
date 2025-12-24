@@ -1,0 +1,366 @@
+# =============================================================================
+# Nest Blue - Project Cost Management App
+# Comprehensive .gitignore for Full-Stack Application
+# =============================================================================
+
+# =============================================================================
+# Dependencies
+# =============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# =============================================================================
+# Environment Variables
+# =============================================================================
+.env
+.env.*
+!.env.example
+!.env.template
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# =============================================================================
+# Build Outputs
+# =============================================================================
+# Backend (NestJS)
+backend/dist/
+backend/build/
+backend/.nest/
+
+# Frontend (Next.js)
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/dist/
+
+# TypeScript
+*.tsbuildinfo
+*.js.map
+*.d.ts.map
+
+# =============================================================================
+# Testing
+# =============================================================================
+coverage/
+.nyc_output/
+*.lcov
+.jest/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# =============================================================================
+# Logs
+# =============================================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log.*
+
+# =============================================================================
+# Database
+# =============================================================================
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.sql
+*.dump
+pgdata/
+postgres-data/
+migrations/*.sql
+!migrations/*.ts
+
+# =============================================================================
+# IDE & Editors
+# =============================================================================
+
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# IntelliJ IDEA / WebStorm
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Eclipse
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# =============================================================================
+# Operating System Files
+# =============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# =============================================================================
+# Cache & Temporary Files
+# =============================================================================
+.cache/
+.parcel-cache/
+.next/cache/
+.npm/
+.eslintcache
+.stylelintcache
+*.cache
+.temp/
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.backup
+*~
+
+# =============================================================================
+# TypeScript
+# =============================================================================
+*.tsbuildinfo
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# =============================================================================
+# Next.js Specific
+# =============================================================================
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/.swc/
+frontend/next-env.d.ts
+
+# =============================================================================
+# NestJS Specific
+# =============================================================================
+backend/dist/
+backend/.nest/
+backend/coverage/
+
+# =============================================================================
+# Deployment & CI/CD
+# =============================================================================
+.vercel/
+.netlify/
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.vscode-test/
+.vercel
+
+# =============================================================================
+# Security & Secrets
+# =============================================================================
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+secrets/
+.secrets/
+*.secret
+*.private
+id_rsa*
+id_ed25519*
+*.pub
+!*.pub.example
+
+# =============================================================================
+# Storage & Uploads
+# =============================================================================
+uploads/
+storage/
+public/uploads/
+public/storage/
+*.upload
+*.uploaded
+
+# =============================================================================
+# Documentation Build
+# =============================================================================
+docs/_build/
+docs/.doctrees/
+site/
+
+# =============================================================================
+# Miscellaneous
+# =============================================================================
+*.pid
+*.seed
+*.pid.lock
+lib-cov/
+.grunt/
+.lock-wscript
+.wafpickle-*
+.node_repl_history
+.yarn-integrity
+.npm
+.node_repl_history
+*.tgz
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# =============================================================================
+# Package Manager Locks (Optional - uncomment if you want to ignore)
+# =============================================================================
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# =============================================================================
+# Local Development
+# =============================================================================
+.local/
+local/
+*.local
+
+# =============================================================================
+# Debug
+# =============================================================================
+.vscode/launch.json
+.vscode/tasks.json
+debug.log
+*.debug
+
+# =============================================================================
+# Performance & Monitoring
+# =============================================================================
+.clinic/
+0x/
+*.cpuprofile
+*.heapsnapshot
+
+# =============================================================================
+# Docker (if used)
+# =============================================================================
+docker-compose.override.yml
+.dockerignore
+*.dockerfile.local
+
+# =============================================================================
+# Backup Files
+# =============================================================================
+*.backup
+*.old
+*.orig
+*.save
+*.bak
+
+# =============================================================================
+# Generated Files
+# =============================================================================
+generated/
+auto-generated/
+*.generated.*
+
+# =============================================================================
+# Project Specific
+# =============================================================================
+# Remove features folder (if exists)
+src/features/
+frontend/src/features/
+
+# User credentials (if any)
+*CREDENTIALS*
+*SECRET*
+*PASSWORD*
+USER_CREDENTIALS.md
+
+# =============================================================================
+# End of .gitignore
+# =============================================================================
+
