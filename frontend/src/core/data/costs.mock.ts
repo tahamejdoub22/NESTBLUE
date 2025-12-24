@@ -1,0 +1,205 @@
+import type { Cost } from "@/interfaces";
+
+const now = new Date();
+const lastWeek = new Date(now);
+lastWeek.setDate(lastWeek.getDate() - 7);
+const lastMonth = new Date(now);
+lastMonth.setMonth(lastMonth.getMonth() - 1);
+const twoWeeksAgo = new Date(now);
+twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+const threeDaysAgo = new Date(now);
+threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+const yesterday = new Date(now);
+yesterday.setDate(yesterday.getDate() - 1);
+
+export const mockCosts: Cost[] = [
+  {
+    id: "cost-1",
+    name: "Office Rent",
+    amount: 2500,
+    currency: "USD",
+    category: "housing",
+    description: "Monthly office space rental",
+    date: new Date(now.getFullYear(), now.getMonth(), 1),
+    tags: ["office", "recurring"],
+    createdAt: lastMonth,
+    updatedAt: lastMonth,
+  },
+  {
+    id: "cost-2",
+    name: "Team Lunch",
+    amount: 120,
+    currency: "USD",
+    category: "food",
+    description: "Team building lunch meeting",
+    date: yesterday,
+    tags: ["team", "meeting"],
+    createdAt: yesterday,
+    updatedAt: yesterday,
+  },
+  {
+    id: "cost-3",
+    name: "Software Licenses",
+    amount: 450,
+    currency: "USD",
+    category: "other",
+    description: "Annual software subscription renewals",
+    date: threeDaysAgo,
+    tags: ["software", "subscription"],
+    createdAt: threeDaysAgo,
+    updatedAt: threeDaysAgo,
+  },
+  {
+    id: "cost-4",
+    name: "Marketing Campaign",
+    amount: 5000,
+    currency: "USD",
+    category: "other",
+    description: "Q4 digital marketing campaign",
+    date: twoWeeksAgo,
+    tags: ["marketing", "campaign"],
+    projectId: "prjmar004", // Marketing Campaign project
+    createdAt: twoWeeksAgo,
+    updatedAt: twoWeeksAgo,
+  },
+  {
+    id: "cost-5",
+    name: "Internet & Utilities",
+    amount: 180,
+    currency: "USD",
+    category: "utilities",
+    description: "Monthly internet and utility bills",
+    date: new Date(now.getFullYear(), now.getMonth(), 5),
+    tags: ["utilities", "recurring"],
+    createdAt: new Date(now.getFullYear(), now.getMonth(), 5),
+    updatedAt: new Date(now.getFullYear(), now.getMonth(), 5),
+  },
+  {
+    id: "cost-6",
+    name: "Conference Tickets",
+    amount: 800,
+    currency: "USD",
+    category: "education",
+    description: "Tech conference tickets for team members",
+    date: lastWeek,
+    tags: ["conference", "education"],
+    createdAt: lastWeek,
+    updatedAt: lastWeek,
+  },
+  {
+    id: "cost-7",
+    name: "Equipment Purchase",
+    amount: 3200,
+    currency: "USD",
+    category: "other",
+    description: "New development laptops",
+    date: new Date(now.getFullYear(), now.getMonth() - 1, 15),
+    tags: ["equipment", "hardware"],
+    projectId: "prjweb001", // Web Development project
+    createdAt: new Date(now.getFullYear(), now.getMonth() - 1, 15),
+    updatedAt: new Date(now.getFullYear(), now.getMonth() - 1, 15),
+  },
+  {
+    id: "cost-8",
+    name: "Transportation",
+    amount: 150,
+    currency: "USD",
+    category: "transportation",
+    description: "Client meeting travel expenses",
+    date: yesterday,
+    tags: ["travel", "client"],
+    createdAt: yesterday,
+    updatedAt: yesterday,
+  },
+  {
+    id: "cost-9",
+    name: "Cloud Services",
+    amount: 350,
+    currency: "USD",
+    category: "utilities",
+    description: "Monthly cloud hosting and services",
+    date: new Date(now.getFullYear(), now.getMonth(), 10),
+    tags: ["cloud", "hosting", "recurring"],
+    projectId: "prjinf005", // Infrastructure Upgrade project
+    createdAt: new Date(now.getFullYear(), now.getMonth(), 10),
+    updatedAt: new Date(now.getFullYear(), now.getMonth(), 10),
+  },
+  {
+    id: "cost-10",
+    name: "Design Tools",
+    amount: 240,
+    currency: "USD",
+    category: "other",
+    description: "Figma and Adobe Creative Suite subscriptions",
+    date: lastWeek,
+    tags: ["design", "tools", "subscription"],
+    projectId: "prjweb001", // Web Development project
+    createdAt: lastWeek,
+    updatedAt: lastWeek,
+  },
+  {
+    id: "cost-11",
+    name: "Design Tools Subscription",
+    amount: 1200,
+    currency: "USD",
+    category: "other",
+    description: "Design software for web development project",
+    date: new Date("2024-01-15"),
+    tags: ["design", "tools"],
+    projectId: "prjweb001", // Web Development project
+    createdAt: new Date("2024-01-15"),
+    updatedAt: new Date("2024-01-15"),
+  },
+  {
+    id: "cost-12",
+    name: "Hosting Services",
+    amount: 500,
+    currency: "USD",
+    category: "utilities",
+    description: "Web hosting for development project",
+    date: new Date("2024-02-01"),
+    tags: ["hosting", "web"],
+    projectId: "prjweb001", // Web Development project
+    createdAt: new Date("2024-02-01"),
+    updatedAt: new Date("2024-02-01"),
+  },
+  {
+    id: "cost-13",
+    name: "Mobile App Development Tools",
+    amount: 800,
+    currency: "USD",
+    category: "other",
+    description: "React Native and mobile development tools",
+    date: new Date("2024-02-15"),
+    tags: ["mobile", "tools"],
+    projectId: "prjmob002", // Mobile App project
+    createdAt: new Date("2024-02-15"),
+    updatedAt: new Date("2024-02-15"),
+  },
+  {
+    id: "cost-14",
+    name: "E-commerce Platform Setup",
+    amount: 2500,
+    currency: "USD",
+    category: "other",
+    description: "Initial setup costs for e-commerce platform",
+    date: new Date("2024-03-01"),
+    tags: ["ecommerce", "setup"],
+    projectId: "prjeco003", // E-commerce Platform project
+    createdAt: new Date("2024-03-01"),
+    updatedAt: new Date("2024-03-01"),
+  },
+  {
+    id: "cost-15",
+    name: "Marketing Materials",
+    amount: 1500,
+    currency: "USD",
+    category: "other",
+    description: "Print and digital marketing materials",
+    date: new Date("2024-01-20"),
+    tags: ["marketing", "materials"],
+    projectId: "prjmar004", // Marketing Campaign project
+    createdAt: new Date("2024-01-20"),
+    updatedAt: new Date("2024-01-20"),
+  },
+];
