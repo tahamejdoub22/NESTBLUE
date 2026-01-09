@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -15,6 +16,8 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
@@ -109,10 +112,15 @@ export class AuthService {
     );
 
     // TODO: Send email with reset token
-    // For now, return the token (remove in production)
+    // For now, only log the token in development environment
+    if (this.configService.get('NODE_ENV') === 'development') {
+      this.logger.debug(
+        `[DEV ONLY] Password reset token for ${user.email}: ${resetToken}`,
+      );
+    }
+
     return {
-      message: 'Password reset email sent',
-      token: resetToken, // Remove this in production
+      message: 'If the email exists, a password reset link has been sent',
     };
   }
 
