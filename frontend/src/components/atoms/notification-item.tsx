@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Notification, NotificationType } from "@/interfaces";
 import { 
   CheckCircle2, 
-  AlertCircle, 
   Info, 
   AlertTriangle, 
   XCircle,
@@ -62,7 +60,6 @@ export function NotificationItem({
   const timeAgo = formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true });
   const icon = typeIcons[notification.type] || <Info className="h-4 w-4" />;
   const colorClass = typeColors[notification.type] || typeColors.info;
-  const [isHovered, setIsHovered] = useState(false);
 
   const handleClick = () => {
     if (!notification.read && onMarkAsRead) {
@@ -70,6 +67,13 @@ export function NotificationItem({
     }
     if (onClick) {
       onClick();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleClick();
     }
   };
 
@@ -89,11 +93,12 @@ export function NotificationItem({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={handleClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onKeyDown={handleKeyDown}
       className={cn(
-        "group relative flex gap-3 p-4 cursor-pointer transition-all duration-200",
+        "group relative flex gap-3 p-4 cursor-pointer transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
         "hover:bg-accent/50",
         !notification.read && "bg-primary/5 hover:bg-primary/10",
         className
@@ -101,9 +106,8 @@ export function NotificationItem({
     >
       {/* Icon */}
       <div className={cn(
-        "flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center border transition-all",
-        colorClass,
-        isHovered && "scale-105"
+        "flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center border transition-all group-hover:scale-105 group-focus-within:scale-105",
+        colorClass
       )}>
         {icon}
       </div>
@@ -155,8 +159,7 @@ export function NotificationItem({
             
             {/* Action Buttons */}
             <div className={cn(
-              "flex items-center gap-1 transition-opacity",
-              isHovered ? "opacity-100" : "opacity-0"
+              "flex items-center gap-1 transition-opacity opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
             )}>
               {!notification.read && onMarkAsRead && (
                 <Button
@@ -165,6 +168,7 @@ export function NotificationItem({
                   className="h-7 w-7"
                   onClick={handleMarkAsRead}
                   title="Mark as read"
+                  aria-label="Mark as read"
                 >
                   <Check className="h-3.5 w-3.5" />
                 </Button>
@@ -176,6 +180,7 @@ export function NotificationItem({
                   className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={handleDelete}
                   title="Delete"
+                  aria-label="Delete notification"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
