@@ -31,6 +31,7 @@ export enum TaskPriority {
 @Entity('tasks')
 @Index(['uid'], { unique: true })
 @Index(['identifier'], { unique: true })
+@Index(['projectId']) // Index for filtering tasks by project
 export class Task {
   @Column({ type: 'varchar', length: 50, primary: true })
   uid: string; // Backend ID (not id!)
