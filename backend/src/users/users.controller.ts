@@ -39,8 +39,7 @@ export class UsersController {
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
   async getProfile(@Request() req) {
-    const user = await this.usersService.findOne(req.user.userId);
-    return this.usersService.sanitizeUser(user);
+    return this.usersService.findOne(req.user.userId);
   }
 
   @Get(':id')
@@ -52,8 +51,7 @@ export class UsersController {
   @Patch('me')
   @ApiOperation({ summary: 'Update current user profile' })
   async updateProfile(@Request() req, @Body() updateUserDto: UpdateUserDto) {
-    const user = await this.usersService.update(req.user.userId, updateUserDto);
-    return this.usersService.sanitizeUser(user);
+    return this.usersService.update(req.user.userId, updateUserDto);
   }
 
   @Post('me/password')
