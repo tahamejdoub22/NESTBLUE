@@ -97,6 +97,8 @@ export const TooltipTrigger = forwardRef<HTMLDivElement, TooltipTriggerProps>(
           ref={ref}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
+          onFocus={handleMouseEnter}
+          onBlur={handleMouseLeave}
           className={cn(className)}
           {...props}
         >
@@ -110,6 +112,8 @@ export const TooltipTrigger = forwardRef<HTMLDivElement, TooltipTriggerProps>(
         ref={ref}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onFocus={handleMouseEnter}
+        onBlur={handleMouseLeave}
         className={cn(className)}
         {...props}
       >

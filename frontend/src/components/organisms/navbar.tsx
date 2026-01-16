@@ -114,6 +114,7 @@ export function Navbar({ onMenuClick, sidebarCollapsed = false }: NavbarProps) {
           variant="ghost"
           size="icon"
           onClick={onMenuClick}
+          aria-label="Toggle navigation menu"
           className="md:hidden h-9 w-9 rounded-xl hover:bg-primary/5"
         >
           <Menu className="h-5 w-5 text-foreground/70" />

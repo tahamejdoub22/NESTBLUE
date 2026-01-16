@@ -535,6 +535,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                   variant="ghost"
                   size="icon"
                   onClick={onToggle}
+                  aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                   className={cn(
                     "h-8 w-8 rounded-lg transition-all duration-200 flex-shrink-0 z-10",
                     "bg-background hover:bg-primary/10 hover:text-primary",
@@ -1113,6 +1114,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 onClick={() => setIsCreateSpaceModalOpen(true)}
+                aria-label="Create new space"
                 className={cn(
                   "w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium mt-1",
                   "transition-all duration-200",
@@ -1142,6 +1144,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                   variant="ghost" 
                   size="icon" 
                   onClick={() => setIsNewConversationOpen(true)}
+                  aria-label="Create new conversation"
                   className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-200 hover:scale-110"
                 >
                   <Plus className="h-4 w-4" />
@@ -1157,6 +1160,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                         variant="ghost" 
                         size="icon" 
                         onClick={() => setIsNewConversationOpen(true)}
+                        aria-label="Create new conversation"
                         className="h-10 w-10 rounded-xl hover:bg-primary/10 hover:text-primary transition-all duration-200 hover:scale-110"
                       >
                         <MessageSquare className="h-5 w-5" />
