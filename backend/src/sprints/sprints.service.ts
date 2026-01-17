@@ -26,25 +26,25 @@ export class SprintsService {
   }
 
   async findAll(projectId?: string): Promise<Sprint[]> {
-    const where = projectId ? { projectId } : {};
-    const sprints = await this.sprintsRepository.find({
-      where,
-      relations: ['project'],
-      order: { startDate: 'DESC' },
-    });
+    const queryBuilder = this.sprintsRepository.createQueryBuilder('sprint')
+      .leftJoinAndSelect('sprint.project', 'project')
+      .loadRelationCountAndMap('sprint.taskCount', 'sprint.tasks', 'tasks')
+      .loadRelationCountAndMap(
+        'sprint.completedTaskCount',
+        'sprint.tasks',
+        'tasks',
+        (qb) => qb.where('(tasks.status = :lower OR tasks.status = :upper)', {
+          lower: 'complete',
+          upper: 'COMPLETE',
+        })
+      )
+      .orderBy('sprint.startDate', 'DESC');
 
-    // Recalculate counts for each sprint to ensure they are true and fresh
-    // This ensures all counts across all views (lists, cards, etc.) are correct
-    for (const sprint of sprints) {
-      await this.recalculateTaskCounts(sprint.id);
+    if (projectId) {
+      queryBuilder.where('sprint.projectId = :projectId', { projectId });
     }
 
-    // Fetch again after recalculation to get updated values
-    return this.sprintsRepository.find({
-      where,
-      relations: ['project'],
-      order: { startDate: 'DESC' },
-    });
+    return await queryBuilder.getMany();
   }
 
   async findOne(id: string): Promise<Sprint> {
@@ -158,14 +158,22 @@ export class SprintsService {
    */
   async recalculateTaskCounts(sprintId: string): Promise<void> {
     try {
-      const tasks = await this.tasksRepository.find({
+      const taskCount = await this.tasksRepository.count({
         where: { sprintId },
       });
 
-      const taskCount = tasks.length;
-      const completedTaskCount = tasks.filter(
-        (task) => task.status === 'complete' || (task.status as string) === 'COMPLETE'
-      ).length;
+      // Using createQueryBuilder for completed tasks to handle inconsistent casing if needed
+      // or just standard TypeORM with proper enum if data was clean.
+      // Based on previous code: task.status === 'complete' || (task.status as string) === 'COMPLETE'
+      // It implies data might be mixed.
+      const completedTaskCount = await this.tasksRepository
+        .createQueryBuilder('task')
+        .where('task.sprintId = :sprintId', { sprintId })
+        .andWhere('(task.status = :lower OR task.status = :upper)', {
+          lower: 'complete',
+          upper: 'COMPLETE',
+        })
+        .getCount();
 
       await this.sprintsRepository.update(sprintId, {
         taskCount,
