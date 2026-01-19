@@ -27,19 +27,6 @@ export class SprintsService {
 
   async findAll(projectId?: string): Promise<Sprint[]> {
     const where = projectId ? { projectId } : {};
-    const sprints = await this.sprintsRepository.find({
-      where,
-      relations: ['project'],
-      order: { startDate: 'DESC' },
-    });
-
-    // Recalculate counts for each sprint to ensure they are true and fresh
-    // This ensures all counts across all views (lists, cards, etc.) are correct
-    for (const sprint of sprints) {
-      await this.recalculateTaskCounts(sprint.id);
-    }
-
-    // Fetch again after recalculation to get updated values
     return this.sprintsRepository.find({
       where,
       relations: ['project'],
@@ -158,21 +145,27 @@ export class SprintsService {
    */
   async recalculateTaskCounts(sprintId: string): Promise<void> {
     try {
-      const tasks = await this.tasksRepository.find({
+      const taskCount = await this.tasksRepository.count({
         where: { sprintId },
       });
 
-      const taskCount = tasks.length;
-      const completedTaskCount = tasks.filter(
-        (task) => task.status === 'complete' || (task.status as string) === 'COMPLETE'
-      ).length;
+      const completedTaskCount = await this.tasksRepository
+        .createQueryBuilder('task')
+        .where('task.sprintId = :sprintId', { sprintId })
+        .andWhere('task.status IN (:...statuses)', {
+          statuses: ['complete', 'COMPLETE'],
+        })
+        .getCount();
 
       await this.sprintsRepository.update(sprintId, {
         taskCount,
         completedTaskCount,
       });
     } catch (error) {
-      console.error(`Error recalculating task counts for sprint ${sprintId}:`, error);
+      console.error(
+        `Error recalculating task counts for sprint ${sprintId}:`,
+        error,
+      );
       // Don't throw error to prevent blocking other operations
     }
   }
