@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Sprint, SprintStatus } from './entities/sprint.entity';
-import { Task } from '../tasks/entities/task.entity';
+import { Task, TaskStatus } from '../tasks/entities/task.entity';
 import { CreateSprintDto } from './dto/create-sprint.dto';
 import { UpdateSprintDto } from './dto/update-sprint.dto';
 
@@ -27,19 +27,7 @@ export class SprintsService {
 
   async findAll(projectId?: string): Promise<Sprint[]> {
     const where = projectId ? { projectId } : {};
-    const sprints = await this.sprintsRepository.find({
-      where,
-      relations: ['project'],
-      order: { startDate: 'DESC' },
-    });
-
-    // Recalculate counts for each sprint to ensure they are true and fresh
-    // This ensures all counts across all views (lists, cards, etc.) are correct
-    for (const sprint of sprints) {
-      await this.recalculateTaskCounts(sprint.id);
-    }
-
-    // Fetch again after recalculation to get updated values
+    // Optimized: Removed N+1 loop. Counts are maintained by write operations in TasksService.
     return this.sprintsRepository.find({
       where,
       relations: ['project'],
@@ -158,14 +146,17 @@ export class SprintsService {
    */
   async recalculateTaskCounts(sprintId: string): Promise<void> {
     try {
-      const tasks = await this.tasksRepository.find({
+      // Optimized: Use count() instead of finding all entities to reduce memory usage and DB load
+      const taskCount = await this.tasksRepository.count({
         where: { sprintId },
       });
 
-      const taskCount = tasks.length;
-      const completedTaskCount = tasks.filter(
-        (task) => task.status === 'complete' || (task.status as string) === 'COMPLETE'
-      ).length;
+      const completedTaskCount = await this.tasksRepository.count({
+        where: [
+          { sprintId, status: TaskStatus.COMPLETE },
+          { sprintId, status: 'COMPLETE' as any }, // Handle legacy casing if present
+        ],
+      });
 
       await this.sprintsRepository.update(sprintId, {
         taskCount,
