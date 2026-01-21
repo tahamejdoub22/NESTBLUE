@@ -90,6 +90,8 @@ export function DialogContent({
       onClick={handleOverlayClick}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         className={cn(
           "relative w-full mx-4 bg-card rounded-2xl shadow-2xl border border-border/40",
           "animate-in zoom-in-95 slide-in-from-bottom-4 duration-300",
@@ -104,6 +106,7 @@ export function DialogContent({
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Close"
             onClick={() => context.onOpenChange(false)}
             className="absolute top-4 right-4 z-10 h-8 w-8 rounded-full hover:bg-muted"
           >
