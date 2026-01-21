@@ -16,6 +16,7 @@ import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -26,10 +27,12 @@ export class AuthController {
   ) {}
 
   @Post('login')
+  @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 429, description: 'Too many login attempts' })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
