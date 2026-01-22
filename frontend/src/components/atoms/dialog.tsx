@@ -12,6 +12,15 @@ interface DialogProps {
   children: React.ReactNode;
 }
 
+interface DialogContextType {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const DialogContext = React.createContext<DialogContextType | undefined>(
+  undefined,
+);
+
 export function Dialog({ open, onOpenChange, children }: DialogProps) {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -47,9 +56,11 @@ export const DialogContent = React.forwardRef<
           "animate-in zoom-in-95 slide-in-from-bottom-4 duration-300",
           "max-h-[90vh] overflow-hidden flex flex-col",
           "max-w-lg",
-          className
+          className,
         )}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
         {...props}
       >
         {showCloseButton && (
@@ -59,7 +70,7 @@ export const DialogContent = React.forwardRef<
             aria-label="Close"
             onClick={() => context.onOpenChange(false)}
             className="absolute top-4 right-4 z-10 h-8 w-8 rounded-full hover:bg-muted"
-            aria-label="Close"
+            aria-label="Close dialog"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </Button>
@@ -72,48 +83,84 @@ DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 type DialogHeaderProps = React.HTMLAttributes<HTMLDivElement>;
 
-export function DialogHeader({ className, ...props }: DialogHeaderProps) {
+  return createPortal(content, document.body);
+}
+
+interface DialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+}
+
+export function DialogHeader({
+  children,
+  className,
+  ...props
+}: DialogHeaderProps) {
   return (
-    <div
-      className={cn("px-8 pt-8 pb-4 space-y-2.5", className)}
-      {...props}
-    />
+    <div className={cn("px-8 pt-8 pb-4 space-y-2.5", className)} {...props}>
+      {children}
+    </div>
   );
 }
 
-export const DialogTitle = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title
-    ref={ref}
-    className={cn(
-      "text-2xl font-bold leading-none tracking-tight text-foreground/90",
-      className
-    )}
-    {...props}
-  />
-));
-DialogTitle.displayName = DialogPrimitive.Title.displayName;
+interface DialogTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
+  children: React.ReactNode;
+}
 
-export const DialogDescription = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description
-    ref={ref}
-    className={cn("text-base text-muted-foreground/80 leading-relaxed", className)}
-    {...props}
-  />
-));
-DialogDescription.displayName = DialogPrimitive.Description.displayName;
+export function DialogTitle({
+  children,
+  className,
+  ...props
+}: DialogTitleProps) {
+  return (
+    <h2
+      className={cn(
+        "text-2xl font-bold leading-none tracking-tight text-foreground/90",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h2>
+  );
+}
 
-type DialogFooterProps = React.HTMLAttributes<HTMLDivElement>;
+interface DialogDescriptionProps extends React.HTMLAttributes<HTMLParagraphElement> {
+  children: React.ReactNode;
+}
 
-export function DialogFooter({ className, ...props }: DialogFooterProps) {
+export function DialogDescription({
+  children,
+  className,
+  ...props
+}: DialogDescriptionProps) {
+  return (
+    <p
+      className={cn(
+        "text-base text-muted-foreground/80 leading-relaxed",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </p>
+  );
+}
+
+interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode;
+}
+
+export function DialogFooter({
+  children,
+  className,
+  ...props
+}: DialogFooterProps) {
   return (
     <div
-      className={cn("px-8 py-6 border-t border-border/40 bg-muted/20 flex items-center justify-end gap-3", className)}
+      className={cn(
+        "px-8 py-6 border-t border-border/40 bg-muted/20 flex items-center justify-end gap-3",
+        className,
+      )}
       {...props}
     />
   );

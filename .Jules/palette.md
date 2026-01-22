@@ -1,3 +1,3 @@
-## 2025-02-20 - Custom Modal Accessibility
-**Learning:** The custom `Dialog` component (`frontend/src/components/atoms/dialog.tsx`) was implemented without basic ARIA roles (`role="dialog"`, `aria-modal`) or labels for icon buttons.
-**Action:** When auditing custom UI components, prioritize checking for missing ARIA attributes on structural elements (modals, drawers) and icon-only buttons.
+## 2026-01-22 - Custom Dialog Accessibility
+**Learning:** The project uses a custom `Dialog` implementation (`frontend/src/components/atoms/dialog.tsx`) that ignores the installed `@radix-ui/react-dialog` primitives. This custom implementation was missing critical accessibility attributes like `role="dialog"`, `aria-modal="true"`, and `aria-label` on the close button.
+**Action:** When working with "atoms" in this codebase, always inspect the implementation to check if it's wrapping a headless library or doing it manually. For manual implementations, manually add ARIA attributes. Specifically for Dialogs, ensure `role`, `aria-modal`, and labelled close buttons are present.
