@@ -1,3 +1,3 @@
-## 2025-02-18 - Missing ARIA Labels on Icon Buttons
-**Learning:** Frontend icon-only buttons using `size='icon'` (e.g., in `Button` component) must have an explicit `aria-label` manually added, as the component does not enforce or generate it automatically.
-**Action:** When using `size="icon"`, always verify and add `aria-label`. Search for `size="icon"` to find potential violations.
+## 2024-05-22 - Keyboard Accessible Tooltips
+**Learning:** The custom `Tooltip` implementation used a wrapper `div` that only handled mouse events (`onMouseEnter`, `onMouseLeave`), ignoring keyboard focus. This meant keyboard users navigating the sidebar received no tooltip feedback for icon-only buttons.
+**Action:** Always ensure `TooltipTrigger` components handle `onFocus` and `onBlur` events, delegating them to the same handlers as mouse events (or dedicated ones) to support keyboard users.

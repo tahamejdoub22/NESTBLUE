@@ -3,7 +3,102 @@
 import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
-import { cn } from "@/lib/utils";
+    const handleMouseEnter = () => {
+      timeoutRef.current = setTimeout(() => setOpen(true), delayDuration);
+    };
+
+    const handleMouseLeave = () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      setOpen(false);
+    };
+
+    useEffect(() => {
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
+    }, []);
+
+    if (asChild && typeof children === "object" && children !== null && "props" in children) {
+      const child = children as React.ReactElement;
+      return (
+        <div
+          ref={ref}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          onFocus={handleMouseEnter}
+          onBlur={handleMouseLeave}
+          className={cn(className)}
+          {...props}
+        >
+          {child}
+        </div>
+      );
+    }
+
+    return (
+      <div
+        ref={ref}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onFocus={handleMouseEnter}
+        onBlur={handleMouseLeave}
+        className={cn(className)}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  }
+);
+
+TooltipTrigger.displayName = "TooltipTrigger";
+
+export interface TooltipContentProps extends HTMLAttributes<HTMLDivElement> {
+  side?: "top" | "right" | "bottom" | "left";
+  align?: "start" | "center" | "end";
+  sideOffset?: number;
+}
+
+export const TooltipContent = forwardRef<HTMLDivElement, TooltipContentProps>(
+  ({ className, children, side = "top", sideOffset = 4, ...props }, ref) => {
+    const { open } = useTooltip();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+      setMounted(true);
+    }, []);
+
+    if (!open || !mounted) return null;
+
+    return createPortal(
+      <div
+        ref={ref}
+        role="tooltip"
+        className={cn(
+          "z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md",
+          "animate-in fade-in-0 zoom-in-95",
+          side === "top" && "slide-in-from-bottom-2",
+          side === "bottom" && "slide-in-from-top-2",
+          side === "left" && "slide-in-from-right-2",
+          side === "right" && "slide-in-from-left-2",
+          className
+        )}
+        style={{
+          position: "fixed",
+          pointerEvents: "none",
+        }}
+        {...props}
+      >
+        {children}
+      </div>,
+      document.body
+    );
+  }
+);
 
 const TooltipProvider = TooltipPrimitive.Provider;
 
