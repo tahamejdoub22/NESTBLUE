@@ -16,6 +16,7 @@ import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -26,6 +27,7 @@ export class AuthController {
   ) {}
 
   @Post('login')
+  @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({ status: 200, description: 'Login successful' })
@@ -85,8 +87,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Current user data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getCurrentUser(@Request() req) {
-    const user = await this.usersService.findOne(req.user.userId);
-    return this.usersService.sanitizeUser(user);
+    return this.usersService.findOne(req.user.userId);
   }
 
   @Post('logout')
