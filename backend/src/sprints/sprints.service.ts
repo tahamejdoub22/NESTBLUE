@@ -27,36 +27,13 @@ export class SprintsService {
 
   async findAll(projectId?: string): Promise<Sprint[]> {
     const where = projectId ? { projectId } : {};
-    const sprints = await this.sprintsRepository.find({
+    // Note: We previously recalculated task counts here for every sprint.
+    // This caused N+1 query issues (fetch sprints -> for each sprint: fetch tasks -> update sprint).
+    // Task counts are now maintained by event-driven updates in TasksService (create/update/remove).
+    return this.sprintsRepository.find({
       where,
       relations: ['project'],
       order: { startDate: 'DESC' },
-    });
-
-    if (sprints.length === 0) {
-      return [];
-    }
-
-    // Optimize: Calculate counts in a single aggregation query instead of N+1 updates
-    const sprintIds = sprints.map((s) => s.id);
-    const counts = await this.tasksRepository
-      .createQueryBuilder('task')
-      .select('task.sprintId', 'sprintId')
-      .addSelect('COUNT(*)', 'count')
-      .addSelect(
-        "COUNT(CASE WHEN task.status = 'complete' OR task.status = 'COMPLETE' THEN 1 END)",
-        'completedCount',
-      )
-      .where('task.sprintId IN (:...ids)', { ids: sprintIds })
-      .groupBy('task.sprintId')
-      .getRawMany();
-
-    const countsMap = new Map<string, { total: number; completed: number }>();
-    counts.forEach((c) => {
-      countsMap.set(c.sprintId, {
-        total: parseInt(c.count, 10),
-        completed: parseInt(c.completedCount, 10),
-      });
     });
 
     // Assign fresh counts to sprint entities without expensive DB updates
@@ -75,9 +52,6 @@ export class SprintsService {
   }
 
   async findOne(id: string): Promise<Sprint> {
-    // Recalculate counts to ensure they are true and fresh
-    await this.recalculateTaskCounts(id);
-
     const sprint = await this.sprintsRepository.findOne({
       where: { id },
       relations: ['project'],
@@ -185,16 +159,16 @@ export class SprintsService {
    */
   async recalculateTaskCounts(sprintId: string): Promise<void> {
     try {
-      const taskCount = await this.tasksRepository.count({
-        where: { sprintId },
-      });
-
-      const completedTaskCount = await this.tasksRepository.count({
-        where: [
-          { sprintId, status: TaskStatus.COMPLETE },
-          { sprintId, status: 'COMPLETE' as any },
-        ],
-      });
+      const [taskCount, completedTaskCount] = await Promise.all([
+        this.tasksRepository.count({ where: { sprintId } }),
+        this.tasksRepository.count({
+          where: [
+            { sprintId, status: TaskStatus.COMPLETE },
+            // Cast to any to handle potential inconsistent data in DB that violates types
+            { sprintId, status: 'COMPLETE' as any },
+          ],
+        }),
+      ]);
 
       await this.sprintsRepository.update(sprintId, {
         taskCount,
