@@ -1,5 +1,3 @@
-## 2024-05-23 - Tooltip Implementation Refactor
-**Learning:** Custom UI implementations (like `createPortal` for tooltips) often lack critical accessibility features (positioning, focus management) that libraries like Radix UI provide out-of-the-box.
-**Action:** Always check if a headless UI library (like Radix or Headless UI) is available in the project dependencies before maintaining or writing custom complex interactive components.
-**Learning:** React 19 types are stricter regarding `RefObject` nullability, causing friction when updating existing codebases.
-**Action:** Be careful when touching files with `useRef` in React 19 projects; ensure `RefObject` types match exact nullability expectations.
+## 2025-02-18 - Missing ARIA Labels on Icon Buttons
+**Learning:** Frontend icon-only buttons using `size='icon'` (e.g., in `Button` component) must have an explicit `aria-label` manually added, as the component does not enforce or generate it automatically.
+**Action:** When using `size="icon"`, always verify and add `aria-label`. Search for `size="icon"` to find potential violations.
