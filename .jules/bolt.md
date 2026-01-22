@@ -1,0 +1,3 @@
+## 2024-05-22 - [Redundant Read-Time Recalculation causing N+1]
+**Learning:** The `SprintsService.findAll` method was manually recalculating task counts for *every* sprint by fetching *all* tasks, creating a massive N+1 query problem and loading full entities into memory. This was done despite the system having event-driven updates (`updateTaskCountsForSprint`) triggered by `TasksService` on every write operation.
+**Action:** Trust the event-driven updates for list views (`findAll`). Only force recalculation on specific single-entity reads (`findOne`) if strictly necessary, and always use `count()` queries instead of loading full entities for aggregation.
