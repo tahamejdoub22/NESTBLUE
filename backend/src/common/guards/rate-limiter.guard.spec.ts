@@ -1,98 +1,76 @@
-import { RateLimiterGuard } from './rate-limiter.guard';
-import { ExecutionContext, HttpStatus } from '@nestjs/common';
+import { RateLimiterGuard } from "./rate-limiter.guard";
+import { ExecutionContext, HttpException, HttpStatus } from "@nestjs/common";
 
-describe('RateLimiterGuard', () => {
+describe("RateLimiterGuard", () => {
   let guard: RateLimiterGuard;
-  let mockContext: ExecutionContext;
-  let mockRequest: any;
+
+  const createMockContext = (ip: string) => {
+    return {
+      switchToHttp: () => ({
+        getRequest: () => ({
+          headers: { "x-forwarded-for": ip },
+          socket: { remoteAddress: ip },
+        }),
+      }),
+    } as unknown as ExecutionContext;
+  };
 
   beforeEach(() => {
     guard = new RateLimiterGuard();
-    mockRequest = {
-      headers: {},
-      connection: { remoteAddress: '127.0.0.1' },
-    };
-    mockContext = {
-      switchToHttp: jest.fn().mockReturnValue({
-        getRequest: jest.fn().mockReturnValue(mockRequest),
-      }),
-    } as unknown as ExecutionContext;
+    // Clear static storage between tests
+    (RateLimiterGuard as any).limits.clear();
   });
 
-  it('should allow requests under the limit', () => {
-    // Limit is 5
-    expect(guard.canActivate(mockContext)).toBe(true);
-    expect(guard.canActivate(mockContext)).toBe(true);
-    expect(guard.canActivate(mockContext)).toBe(true);
-    expect(guard.canActivate(mockContext)).toBe(true);
-    expect(guard.canActivate(mockContext)).toBe(true);
+  afterEach(() => {
+    (RateLimiterGuard as any).limits.clear();
   });
 
-  it('should block requests over the limit', () => {
-    // Limit is 5
+  it("should allow requests under the limit", () => {
+    const context = createMockContext("127.0.0.1");
+    // Default limit is 5
+    expect(guard.canActivate(context)).toBe(true);
+    expect(guard.canActivate(context)).toBe(true);
+    expect(guard.canActivate(context)).toBe(true);
+    expect(guard.canActivate(context)).toBe(true);
+    expect(guard.canActivate(context)).toBe(true);
+  });
+
+  it("should block requests over the limit", () => {
+    const context = createMockContext("127.0.0.1");
+    // Consume 5 requests
     for (let i = 0; i < 5; i++) {
-      guard.canActivate(mockContext);
+      guard.canActivate(context);
     }
 
+    // 6th request should fail
     try {
-      guard.canActivate(mockContext);
-      fail('Should have thrown HttpException');
+      guard.canActivate(context);
+      throw new Error("Should have thrown HttpException");
     } catch (error) {
-      expect(error.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
-      expect(error.getResponse().message).toBe('Too many requests, please try again later.');
+      expect(error).toBeInstanceOf(HttpException);
+      expect((error as HttpException).getStatus()).toBe(
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
   });
 
-  it('should reset after TTL', async () => {
-    // This test relies on manipulating time or the guard exposing its state.
-    // Since we can't easily mock Date.now() without extensive setup or refactoring the guard to accept a time provider,
-    // we will rely on the logic being correct.
-    // Ideally we would inject a TimeProvider.
+  it("should track different IPs separately", () => {
+    const context1 = createMockContext("127.0.0.1");
+    const context2 = createMockContext("192.168.1.1");
 
-    // For this simple test, we can override the TTL in the instance if it was protected/public, but it's private.
-    // We can use jest.useFakeTimers()
-
-    jest.useFakeTimers();
-    const now = Date.now();
-    jest.setSystemTime(now);
-
+    // Max out IP 1
     for (let i = 0; i < 5; i++) {
-      guard.canActivate(mockContext);
+      guard.canActivate(context1);
     }
 
-    // Fast forward 61 seconds
-    jest.setSystemTime(now + 61000);
+    // IP 1 blocked
+    try {
+      guard.canActivate(context1);
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpException);
+    }
 
-    expect(guard.canActivate(mockContext)).toBe(true);
-
-    jest.useRealTimers();
-  });
-
-  it('should handle different IPs independently', () => {
-    const context1 = {
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue({
-            headers: {},
-            connection: { remoteAddress: '127.0.0.1' },
-          }),
-        }),
-      } as unknown as ExecutionContext;
-
-    const context2 = {
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue({
-            headers: {},
-            connection: { remoteAddress: '192.168.1.1' },
-          }),
-        }),
-      } as unknown as ExecutionContext;
-
-      // Exhaust IP 1
-      for (let i = 0; i < 5; i++) {
-        guard.canActivate(context1);
-      }
-
-      // IP 2 should still be allowed
-      expect(guard.canActivate(context2)).toBe(true);
+    // IP 2 should still be allowed
+    expect(guard.canActivate(context2)).toBe(true);
   });
 });

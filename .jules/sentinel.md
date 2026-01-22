@@ -1,4 +1,4 @@
-## 2024-05-22 - Missing Rate Limiting on Login
-**Vulnerability:** The login endpoint was vulnerable to brute force attacks due to missing rate limiting. The `ThrottlerModule` was missing despite memory suggesting it should be there.
-**Learning:** External dependencies (like `@nestjs/throttler`) might be missing or removed, leaving gaps. A simple in-memory implementation can serve as a lightweight fallback or critical fix without adding dependencies.
-**Prevention:** Always verify that security controls (like rate limits) are actually active and tested, not just assumed to be present from documentation/memory. Use custom guards for critical endpoints if dependency management is restricted.
+## 2024-05-23 - Custom In-Memory Rate Limiting
+**Vulnerability:** Missing rate limiting on sensitive auth endpoints (login) allows brute force attacks.
+**Learning:** The application lacks a global rate limiting solution (like Redis or @nestjs/throttler). Adding a full dependency might be overkill for a single endpoint fix.
+**Prevention:** Implemented a lightweight, in-memory `RateLimiterGuard` using a static `Map` to track IP hits. This provides immediate protection without infrastructure changes, but is limited to a single instance (not distributed).
