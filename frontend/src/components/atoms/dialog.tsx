@@ -56,6 +56,8 @@ export const DialogContent = React.forwardRef<
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Close"
+            onClick={() => context.onOpenChange(false)}
             className="absolute top-4 right-4 z-10 h-8 w-8 rounded-full hover:bg-muted"
             aria-label="Close"
           >

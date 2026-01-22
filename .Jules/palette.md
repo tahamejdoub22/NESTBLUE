@@ -1,3 +1,3 @@
-## 2024-05-23 - Icon Button Accessibility
-**Learning:** Icon-only buttons (using `size="icon"`) are a common accessibility gap in this codebase. They often lack `aria-label`, making them invisible or confusing to screen reader users. The `Button` component doesn't enforce this, so manual vigilance is required. Additionally, inputs often use visual cues for errors (red border) without programmatic feedback (`aria-invalid`).
-**Action:** When using `size="icon"`, ALWAYS add an `aria-label` describing the action. For inputs with validation errors, ensure `aria-invalid={true}` is set. Future work should enforce `aria-label` on `Button` when `size="icon"` via prop types or a runtime warning.
+## 2025-02-20 - Custom Modal Accessibility
+**Learning:** The custom `Dialog` component (`frontend/src/components/atoms/dialog.tsx`) was implemented without basic ARIA roles (`role="dialog"`, `aria-modal`) or labels for icon buttons.
+**Action:** When auditing custom UI components, prioritize checking for missing ARIA attributes on structural elements (modals, drawers) and icon-only buttons.
