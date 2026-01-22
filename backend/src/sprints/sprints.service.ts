@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Sprint, SprintStatus } from './entities/sprint.entity';
-import { Task } from '../tasks/entities/task.entity';
+import { Task, TaskStatus } from '../tasks/entities/task.entity';
 import { CreateSprintDto } from './dto/create-sprint.dto';
 import { UpdateSprintDto } from './dto/update-sprint.dto';
 
@@ -27,30 +27,31 @@ export class SprintsService {
 
   async findAll(projectId?: string): Promise<Sprint[]> {
     const where = projectId ? { projectId } : {};
-    const sprints = await this.sprintsRepository.find({
-      where,
-      relations: ['project'],
-      order: { startDate: 'DESC' },
-    });
-
-    // Recalculate counts for each sprint to ensure they are true and fresh
-    // This ensures all counts across all views (lists, cards, etc.) are correct
-    for (const sprint of sprints) {
-      await this.recalculateTaskCounts(sprint.id);
-    }
-
-    // Fetch again after recalculation to get updated values
+    // Note: We previously recalculated task counts here for every sprint.
+    // This caused N+1 query issues (fetch sprints -> for each sprint: fetch tasks -> update sprint).
+    // Task counts are now maintained by event-driven updates in TasksService (create/update/remove).
     return this.sprintsRepository.find({
       where,
       relations: ['project'],
       order: { startDate: 'DESC' },
     });
+
+    // Assign fresh counts to sprint entities without expensive DB updates
+    sprints.forEach((sprint) => {
+      const countData = countsMap.get(sprint.id);
+      if (countData) {
+        sprint.taskCount = countData.total;
+        sprint.completedTaskCount = countData.completed;
+      } else {
+        sprint.taskCount = 0;
+        sprint.completedTaskCount = 0;
+      }
+    });
+
+    return sprints;
   }
 
   async findOne(id: string): Promise<Sprint> {
-    // Recalculate counts to ensure they are true and fresh
-    await this.recalculateTaskCounts(id);
-
     const sprint = await this.sprintsRepository.findOne({
       where: { id },
       relations: ['project'],
@@ -158,21 +159,29 @@ export class SprintsService {
    */
   async recalculateTaskCounts(sprintId: string): Promise<void> {
     try {
-      const tasks = await this.tasksRepository.find({
-        where: { sprintId },
-      });
+      // Optimized: Use DB aggregation instead of loading all task entities into memory
+      const result = await this.tasksRepository
+        .createQueryBuilder('task')
+        .select('COUNT(*)', 'count')
+        .addSelect(
+          "COUNT(CASE WHEN task.status = 'complete' OR task.status = 'COMPLETE' THEN 1 END)",
+          'completedCount',
+        )
+        .where('task.sprintId = :sprintId', { sprintId })
+        .getRawOne();
 
-      const taskCount = tasks.length;
-      const completedTaskCount = tasks.filter(
-        (task) => task.status === 'complete' || (task.status as string) === 'COMPLETE'
-      ).length;
+      const taskCount = parseInt(result?.count || '0', 10);
+      const completedTaskCount = parseInt(result?.completedCount || '0', 10);
 
       await this.sprintsRepository.update(sprintId, {
         taskCount,
         completedTaskCount,
       });
     } catch (error) {
-      console.error(`Error recalculating task counts for sprint ${sprintId}:`, error);
+      console.error(
+        `Error recalculating task counts for sprint ${sprintId}:`,
+        error,
+      );
       // Don't throw error to prevent blocking other operations
     }
   }
