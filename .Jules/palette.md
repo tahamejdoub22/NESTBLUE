@@ -1,0 +1,3 @@
+## 2024-05-24 - Custom Component Implementations vs. Dependencies
+**Learning:** The codebase contains manual implementations of complex UI components (like `Dialog`, `Tooltip`) despite having robust libraries like `@radix-ui` in `package.json`. These custom implementations often lack critical accessibility features (ARIA roles, focus management) that the libraries provide out-of-the-box.
+**Action:** When working on UI components, verify if the implementation matches the expected library usage. If it's a custom implementation, pay extra attention to manually adding accessibility attributes and behaviors that would otherwise be automatic.
