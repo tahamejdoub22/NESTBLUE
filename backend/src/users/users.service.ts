@@ -8,7 +8,6 @@ import { Repository } from 'typeorm';
 import { User, UserStatus } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { instanceToPlain } from 'class-transformer';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -112,15 +111,4 @@ export class UsersService {
     await this.usersRepository.remove(user);
   }
 
-  sanitizeUser(user: User): Partial<User> {
-    const plain = instanceToPlain(user);
-    delete plain['password'];
-    delete plain['refreshToken'];
-    delete plain['emailVerificationToken'];
-    delete plain['passwordResetToken'];
-    delete plain['passwordResetExpires'];
-    return plain;
-  }
 }
-
-

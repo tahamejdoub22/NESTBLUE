@@ -54,8 +54,7 @@ export class UsersController {
   @Get('me')
   @ApiOperation({ summary: 'Get current user profile' })
   async getProfile(@Request() req) {
-    const user = await this.usersService.findOne(req.user.userId);
-    return this.usersService.sanitizeUser(user);
+    return this.usersService.findOne(req.user.userId);
   }
 
   @Get(':id')
@@ -74,8 +73,7 @@ export class UsersController {
 
     // Also prevent updating email if it requires verification (optional, but safe)
 
-    const user = await this.usersService.update(req.user.userId, updateUserDto);
-    return this.usersService.sanitizeUser(user);
+    return this.usersService.update(req.user.userId, updateUserDto);
   }
 
   @Post('me/password')
