@@ -16,19 +16,19 @@ const envTemplate = `# ============================================
 # ============================================
 # DATABASE CONFIGURATION (Neon PostgreSQL)
 # ============================================
-DATABASE_URL=postgresql://neondb_owner:npg_1ujzKyerhBH7@ep-quiet-king-a43l6z6w-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+DATABASE_URL=postgresql://neondb_owner:your_password@ep-quiet-king-a43l6z6w-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 
 # Neon API Key
-NEON_API_KEY=napi_gdd7sck56a059w1dfpkabibmxhbf6k2mxnxjxe22f8io7fvxehh612j3miu3j3k9
+NEON_API_KEY=your_neon_api_key
 
 # ============================================
 # JWT AUTHENTICATION CONFIGURATION
 # ============================================
 # IMPORTANT: Change these to strong random strings in production!
 # Generate with: openssl rand -base64 64
-JWT_SECRET=cost-management-super-secret-jwt-key-2024-production-change-this-immediately
+JWT_SECRET=your_jwt_secret_key_change_immediately
 JWT_EXPIRES_IN=7d
-JWT_REFRESH_SECRET=cost-management-super-secret-refresh-key-2024-production-change-this-immediately
+JWT_REFRESH_SECRET=your_jwt_refresh_secret_change_immediately
 JWT_REFRESH_EXPIRES_IN=30d
 
 # ============================================
@@ -144,4 +144,3 @@ try {
   console.error('❌ Error creating .env file:', error.message);
   process.exit(1);
 }
-

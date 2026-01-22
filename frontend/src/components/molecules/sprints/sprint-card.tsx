@@ -127,6 +127,7 @@ export function SprintCard({ sprint, onEdit, onDelete, isDeleting }: SprintCardP
                     e.stopPropagation();
                     onEdit(sprint);
                   }}
+                  aria-label="Edit sprint"
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -140,6 +141,7 @@ export function SprintCard({ sprint, onEdit, onDelete, isDeleting }: SprintCardP
                     e.stopPropagation();
                     onDelete(sprint);
                   }}
+                  aria-label="Delete sprint"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
