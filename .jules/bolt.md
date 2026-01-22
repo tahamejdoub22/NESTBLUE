@@ -1,0 +1,3 @@
+## 2024-05-23 - Dashboard N+1 Recalculation Pattern
+**Learning:** The `DashboardService` (and potentially `SprintsService`) implements a pattern of explicitly recalculating entity counts (like sprint tasks) on every read by performing a fresh database query for each entity inside a loop. This creates severe N+1 query performance issues.
+**Action:** When working on "overview" services, check for loops that perform recalculations. Prefer using already loaded data (in-memory filtering) or trusted database columns. If recalculation is strictly necessary, use bulk `GROUP BY` queries instead of iterative `find` queries.

@@ -1,6 +1,7 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { Project } from '../../projects/entities/project.entity';
+import { Task } from '../../tasks/entities/task.entity';
 
 export enum SprintStatus {
   PLANNED = 'planned',
@@ -41,6 +42,9 @@ export class Sprint extends BaseEntity {
 
   @Column({ type: 'int', default: 0 })
   completedTaskCount: number;
+
+  @OneToMany(() => Task, (task) => task.sprint)
+  tasks: Task[];
 }
 
 
