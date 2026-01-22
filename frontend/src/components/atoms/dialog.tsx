@@ -17,7 +17,9 @@ interface DialogContextType {
   onOpenChange: (open: boolean) => void;
 }
 
-const DialogContext = React.createContext<DialogContextType | undefined>(undefined);
+const DialogContext = React.createContext<DialogContextType | undefined>(
+  undefined,
+);
 
 export function Dialog({ open, onOpenChange, children }: DialogProps) {
   const [isOpen, setIsOpen] = React.useState(open);
@@ -95,9 +97,11 @@ export function DialogContent({
           "animate-in zoom-in-95 slide-in-from-bottom-4 duration-300",
           "max-h-[90vh] overflow-hidden flex flex-col",
           "max-w-lg",
-          className
+          className,
         )}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
         {...props}
       >
         {showCloseButton && (
@@ -106,6 +110,7 @@ export function DialogContent({
             size="icon"
             onClick={() => context.onOpenChange(false)}
             className="absolute top-4 right-4 z-10 h-8 w-8 rounded-full hover:bg-muted"
+            aria-label="Close dialog"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </Button>
@@ -124,12 +129,13 @@ interface DialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
 
-export function DialogHeader({ children, className, ...props }: DialogHeaderProps) {
+export function DialogHeader({
+  children,
+  className,
+  ...props
+}: DialogHeaderProps) {
   return (
-    <div
-      className={cn("px-8 pt-8 pb-4 space-y-2.5", className)}
-      {...props}
-    >
+    <div className={cn("px-8 pt-8 pb-4 space-y-2.5", className)} {...props}>
       {children}
     </div>
   );
@@ -139,10 +145,17 @@ interface DialogTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
   children: React.ReactNode;
 }
 
-export function DialogTitle({ children, className, ...props }: DialogTitleProps) {
+export function DialogTitle({
+  children,
+  className,
+  ...props
+}: DialogTitleProps) {
   return (
     <h2
-      className={cn("text-2xl font-bold leading-none tracking-tight text-foreground/90", className)}
+      className={cn(
+        "text-2xl font-bold leading-none tracking-tight text-foreground/90",
+        className,
+      )}
       {...props}
     >
       {children}
@@ -161,7 +174,10 @@ export function DialogDescription({
 }: DialogDescriptionProps) {
   return (
     <p
-      className={cn("text-base text-muted-foreground/80 leading-relaxed", className)}
+      className={cn(
+        "text-base text-muted-foreground/80 leading-relaxed",
+        className,
+      )}
       {...props}
     >
       {children}
@@ -173,14 +189,20 @@ interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
 
-export function DialogFooter({ children, className, ...props }: DialogFooterProps) {
+export function DialogFooter({
+  children,
+  className,
+  ...props
+}: DialogFooterProps) {
   return (
     <div
-      className={cn("px-8 py-6 border-t border-border/40 bg-muted/20 flex items-center justify-end gap-3", className)}
+      className={cn(
+        "px-8 py-6 border-t border-border/40 bg-muted/20 flex items-center justify-end gap-3",
+        className,
+      )}
       {...props}
     >
       {children}
     </div>
   );
 }
-
