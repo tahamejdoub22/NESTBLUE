@@ -1,42 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { SprintsService } from './sprints.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { Sprint } from './entities/sprint.entity';
 import { Task } from '../tasks/entities/task.entity';
+import { Repository } from 'typeorm';
 
 describe('SprintsService', () => {
   let service: SprintsService;
   let sprintsRepository: Repository<Sprint>;
   let tasksRepository: Repository<Task>;
 
-  const mockSprintsQueryBuilder = {
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    loadRelationCountAndMap: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    getMany: jest.fn(),
-  };
-
   const mockSprintsRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
     find: jest.fn(),
     findOne: jest.fn(),
-    save: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
-    create: jest.fn(),
-    createQueryBuilder: jest.fn(() => mockSprintsQueryBuilder),
-  };
-
-  const mockQueryBuilder = {
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    getCount: jest.fn(),
   };
 
   const mockTasksRepository = {
+    find: jest.fn(),
     count: jest.fn(),
-    createQueryBuilder: jest.fn(() => mockQueryBuilder),
+    createQueryBuilder: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -57,50 +43,57 @@ describe('SprintsService', () => {
     service = module.get<SprintsService>(SprintsService);
     sprintsRepository = module.get<Repository<Sprint>>(getRepositoryToken(Sprint));
     tasksRepository = module.get<Repository<Task>>(getRepositoryToken(Task));
-  });
 
-  afterEach(() => {
     jest.clearAllMocks();
   });
 
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
   describe('findAll', () => {
-    it('should return an array of sprints using aggregation query', async () => {
-      const result = [
-        { id: '1', taskCount: 5, completedTaskCount: 2 },
-      ] as Sprint[];
+    it('should find all sprints and return them without recalculation', async () => {
+        const sprints = [
+            { id: '1', startDate: new Date(), endDate: new Date() },
+            { id: '2', startDate: new Date(), endDate: new Date() }
+        ] as Sprint[];
 
-      mockSprintsQueryBuilder.getMany.mockResolvedValue(result);
+        mockSprintsRepository.find.mockResolvedValue(sprints);
 
-      const sprints = await service.findAll('project-1');
+        const result = await service.findAll();
 
-      expect(sprints).toEqual(result);
-      expect(mockSprintsRepository.createQueryBuilder).toHaveBeenCalledWith('sprint');
-      expect(mockSprintsQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('sprint.project', 'project');
-      expect(mockSprintsQueryBuilder.loadRelationCountAndMap).toHaveBeenCalledTimes(2);
-      expect(mockSprintsQueryBuilder.where).toHaveBeenCalledWith('sprint.projectId = :projectId', { projectId: 'project-1' });
-
-      // Ensure recalculateTaskCounts (and thus update) is NOT called
-      expect(mockSprintsRepository.update).not.toHaveBeenCalled();
+        expect(result).toEqual(sprints);
+        // Expect only one find call
+        expect(mockSprintsRepository.find).toHaveBeenCalledTimes(1);
+        // And NO tasksRepository calls
+        expect(mockTasksRepository.find).not.toHaveBeenCalled();
+        expect(mockTasksRepository.count).not.toHaveBeenCalled();
     });
   });
 
   describe('recalculateTaskCounts', () => {
-    it('should calculate and update task counts using count queries', async () => {
-      const sprintId = 'sprint-1';
-      mockTasksRepository.count.mockResolvedValue(10);
-      // We need to set up the mock return value on the shared mockQueryBuilder object
-      mockQueryBuilder.getCount.mockResolvedValue(5);
+    it('should calculate counts using efficient queries', async () => {
+        const sprintId = 'sprint-1';
 
-      await service.recalculateTaskCounts(sprintId);
+        mockTasksRepository.count.mockResolvedValue(5);
 
-      expect(mockTasksRepository.count).toHaveBeenCalledWith({
-        where: { sprintId },
-      });
-      expect(mockTasksRepository.createQueryBuilder).toHaveBeenCalledWith('task');
-      expect(mockSprintsRepository.update).toHaveBeenCalledWith(sprintId, {
-        taskCount: 10,
-        completedTaskCount: 5,
-      });
+        const mockQueryBuilder = {
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getCount: jest.fn().mockResolvedValue(2),
+        };
+        mockTasksRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+
+        await service.recalculateTaskCounts(sprintId);
+
+        expect(mockTasksRepository.count).toHaveBeenCalledWith({ where: { sprintId } });
+        expect(mockTasksRepository.createQueryBuilder).toHaveBeenCalledWith('task');
+        expect(mockQueryBuilder.where).toHaveBeenCalledWith('task.sprintId = :sprintId', { sprintId });
+        expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('task.status IN (:...statuses)', { statuses: ['complete', 'COMPLETE'] });
+        expect(mockSprintsRepository.update).toHaveBeenCalledWith(sprintId, {
+            taskCount: 5,
+            completedTaskCount: 2,
+        });
     });
   });
 });

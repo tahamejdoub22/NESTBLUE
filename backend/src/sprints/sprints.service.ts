@@ -146,12 +146,13 @@ export class SprintsService {
         where: { sprintId },
       });
 
-      const completedTaskCount = await this.tasksRepository.count({
-        where: {
-          sprintId,
-          status: In(['complete', 'COMPLETE']) as any,
-        },
-      });
+      const completedTaskCount = await this.tasksRepository
+        .createQueryBuilder('task')
+        .where('task.sprintId = :sprintId', { sprintId })
+        .andWhere('task.status IN (:...statuses)', {
+          statuses: ['complete', 'COMPLETE'],
+        })
+        .getCount();
 
       await this.sprintsRepository.update(sprintId, {
         taskCount: Number(total),
