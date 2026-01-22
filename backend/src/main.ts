@@ -4,6 +4,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
@@ -54,6 +55,12 @@ async function bootstrap() {
       origin: allowedOrigins,
       credentials: true,
     });
+
+    // Use Helmet for security headers
+    // contentSecurityPolicy is disabled to ensure Swagger UI compatibility
+    app.use(helmet({
+      contentSecurityPolicy: false,
+    }));
 
     // Global validation pipe
     app.useGlobalPipes(
