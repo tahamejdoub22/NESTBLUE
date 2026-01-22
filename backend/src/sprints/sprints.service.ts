@@ -27,7 +27,8 @@ export class SprintsService {
 
   async findAll(projectId?: string): Promise<Sprint[]> {
     const where = projectId ? { projectId } : {};
-    // Optimized: Removed N+1 loop. Counts are maintained by write operations in TasksService.
+    // Optimized: removed N+1 recalculation loop.
+    // Counts are maintained by TasksService events and periodic updates.
     return this.sprintsRepository.find({
       where,
       relations: ['project'],
@@ -36,6 +37,10 @@ export class SprintsService {
   }
 
   async findOne(id: string): Promise<Sprint> {
+    // Recalculate counts to ensure they are true and fresh
+    // Optimized: recalculateTaskCounts is now efficient (O(1) query instead of loading all tasks)
+    await this.recalculateTaskCounts(id);
+
     const sprint = await this.sprintsRepository.findOne({
       where: { id },
       relations: ['project'],
@@ -140,20 +145,24 @@ export class SprintsService {
 
   /**
    * Recalculate task counts for a sprint
+   * Optimized to use database counting instead of loading all tasks into memory
    */
   async recalculateTaskCounts(sprintId: string): Promise<void> {
     try {
-      // Optimized: Use count() instead of finding all entities to reduce memory usage and DB load
       const taskCount = await this.tasksRepository.count({
         where: { sprintId },
       });
 
-      const completedTaskCount = await this.tasksRepository.count({
-        where: [
-          { sprintId, status: TaskStatus.COMPLETE },
-          { sprintId, status: 'COMPLETE' as any }, // Handle legacy casing if present
-        ],
-      });
+      // Use query builder to handle potential casing inconsistencies in status
+      // This corresponds to: task.status === 'complete' || task.status === 'COMPLETE'
+      const completedTaskCount = await this.tasksRepository
+        .createQueryBuilder('task')
+        .where('task.sprintId = :sprintId', { sprintId })
+        .andWhere('(task.status = :status1 OR task.status = :status2)', {
+          status1: 'complete',
+          status2: 'COMPLETE'
+        })
+        .getCount();
 
       await this.sprintsRepository.update(sprintId, {
         taskCount: Number(total),
