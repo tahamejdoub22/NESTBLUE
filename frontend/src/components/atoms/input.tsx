@@ -65,6 +65,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <input
           type={type}
+          aria-invalid={!!error}
           className={cn(
             "flex w-full rounded-lg py-2 font-medium",
             "ring-offset-background",

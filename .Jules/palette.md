@@ -1,3 +1,3 @@
-## 2024-05-24 - Custom Component Implementations vs. Dependencies
-**Learning:** The codebase contains manual implementations of complex UI components (like `Dialog`, `Tooltip`) despite having robust libraries like `@radix-ui` in `package.json`. These custom implementations often lack critical accessibility features (ARIA roles, focus management) that the libraries provide out-of-the-box.
-**Action:** When working on UI components, verify if the implementation matches the expected library usage. If it's a custom implementation, pay extra attention to manually adding accessibility attributes and behaviors that would otherwise be automatic.
+## 2024-05-23 - Icon Button Accessibility
+**Learning:** Icon-only buttons (using `size="icon"`) are a common accessibility gap in this codebase. They often lack `aria-label`, making them invisible or confusing to screen reader users. The `Button` component doesn't enforce this, so manual vigilance is required. Additionally, inputs often use visual cues for errors (red border) without programmatic feedback (`aria-invalid`).
+**Action:** When using `size="icon"`, ALWAYS add an `aria-label` describing the action. For inputs with validation errors, ensure `aria-invalid={true}` is set. Future work should enforce `aria-label` on `Button` when `size="icon"` via prop types or a runtime warning.
