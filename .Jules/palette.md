@@ -1,3 +1,3 @@
-## 2024-05-22 - Keyboard Accessible Tooltips
-**Learning:** The custom `Tooltip` implementation used a wrapper `div` that only handled mouse events (`onMouseEnter`, `onMouseLeave`), ignoring keyboard focus. This meant keyboard users navigating the sidebar received no tooltip feedback for icon-only buttons.
-**Action:** Always ensure `TooltipTrigger` components handle `onFocus` and `onBlur` events, delegating them to the same handlers as mouse events (or dedicated ones) to support keyboard users.
+## 2024-05-24 - Custom Component Implementations vs. Dependencies
+**Learning:** The codebase contains manual implementations of complex UI components (like `Dialog`, `Tooltip`) despite having robust libraries like `@radix-ui` in `package.json`. These custom implementations often lack critical accessibility features (ARIA roles, focus management) that the libraries provide out-of-the-box.
+**Action:** When working on UI components, verify if the implementation matches the expected library usage. If it's a custom implementation, pay extra attention to manually adding accessibility attributes and behaviors that would otherwise be automatic.

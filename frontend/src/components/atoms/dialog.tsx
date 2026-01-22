@@ -39,14 +39,25 @@ export const DialogContent = React.forwardRef<
       )}
       {...props}
     >
-      {children}
-      {showCloseButton && (
-        <DialogPrimitive.Close asChild>
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={cn(
+          "relative w-full mx-4 bg-card rounded-2xl shadow-2xl border border-border/40",
+          "animate-in zoom-in-95 slide-in-from-bottom-4 duration-300",
+          "max-h-[90vh] overflow-hidden flex flex-col",
+          "max-w-lg",
+          className
+        )}
+        onClick={(e) => e.stopPropagation()}
+        {...props}
+      >
+        {showCloseButton && (
           <Button
             variant="ghost"
             size="icon"
             className="absolute top-4 right-4 z-10 h-8 w-8 rounded-full hover:bg-muted"
-            aria-label="Close dialog"
+            aria-label="Close"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </Button>
