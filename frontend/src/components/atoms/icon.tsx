@@ -29,8 +29,9 @@ export function Icon({
   icon: IconComponent, 
   size = "md", 
   className,
-  color 
-}: IconProps) {
+  color,
+  ...props
+}: IconProps & React.ComponentPropsWithoutRef<LucideIcon>) {
   return (
     <IconComponent 
       className={cn(
@@ -38,6 +39,7 @@ export function Icon({
         color && colorMap[color],
         className
       )} 
+      {...props}
     />
   );
 }
