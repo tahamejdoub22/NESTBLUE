@@ -1,6 +1,7 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -35,6 +36,12 @@ async function bootstrap() {
     
     const configService = app.get(ConfigService);
     console.log('✅ Config service initialized');
+
+    // Security: Use Helmet to set various HTTP headers
+    // Note: Disabling CSP for now to ensure Swagger UI compatibility
+    app.use(helmet({
+      contentSecurityPolicy: false,
+    }));
 
     // Enable CORS
     // Allow requests from Next.js frontend (default port 3000) and other configured origins
