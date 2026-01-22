@@ -33,18 +33,45 @@ export class SprintsService {
       order: { startDate: 'DESC' },
     });
 
-    // Recalculate counts for each sprint to ensure they are true and fresh
-    // This ensures all counts across all views (lists, cards, etc.) are correct
-    for (const sprint of sprints) {
-      await this.recalculateTaskCounts(sprint.id);
+    if (sprints.length === 0) {
+      return [];
     }
 
-    // Fetch again after recalculation to get updated values
-    return this.sprintsRepository.find({
-      where,
-      relations: ['project'],
-      order: { startDate: 'DESC' },
+    // Optimize: Calculate counts in a single aggregation query instead of N+1 updates
+    const sprintIds = sprints.map((s) => s.id);
+    const counts = await this.tasksRepository
+      .createQueryBuilder('task')
+      .select('task.sprintId', 'sprintId')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect(
+        "COUNT(CASE WHEN task.status = 'complete' OR task.status = 'COMPLETE' THEN 1 END)",
+        'completedCount',
+      )
+      .where('task.sprintId IN (:...ids)', { ids: sprintIds })
+      .groupBy('task.sprintId')
+      .getRawMany();
+
+    const countsMap = new Map<string, { total: number; completed: number }>();
+    counts.forEach((c) => {
+      countsMap.set(c.sprintId, {
+        total: parseInt(c.count, 10),
+        completed: parseInt(c.completedCount, 10),
+      });
     });
+
+    // Assign fresh counts to sprint entities without expensive DB updates
+    sprints.forEach((sprint) => {
+      const countData = countsMap.get(sprint.id);
+      if (countData) {
+        sprint.taskCount = countData.total;
+        sprint.completedTaskCount = countData.completed;
+      } else {
+        sprint.taskCount = 0;
+        sprint.completedTaskCount = 0;
+      }
+    });
+
+    return sprints;
   }
 
   async findOne(id: string): Promise<Sprint> {
@@ -158,14 +185,16 @@ export class SprintsService {
    */
   async recalculateTaskCounts(sprintId: string): Promise<void> {
     try {
-      const tasks = await this.tasksRepository.find({
+      // Optimize: Use count() instead of loading all task entities
+      const taskCount = await this.tasksRepository.count({
         where: { sprintId },
       });
 
-      const taskCount = tasks.length;
-      const completedTaskCount = tasks.filter(
-        (task) => task.status === 'complete' || (task.status as string) === 'COMPLETE'
-      ).length;
+      const completedTaskCount = await this.tasksRepository
+        .createQueryBuilder('task')
+        .where('task.sprintId = :sprintId', { sprintId })
+        .andWhere("(task.status = 'complete' OR task.status = 'COMPLETE')")
+        .getCount();
 
       await this.sprintsRepository.update(sprintId, {
         taskCount,
