@@ -85,8 +85,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Current user data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getCurrentUser(@Request() req) {
-    const user = await this.usersService.findOne(req.user.userId);
-    return this.usersService.sanitizeUser(user);
+    return this.usersService.findOne(req.user.userId);
   }
 
   @Post('logout')

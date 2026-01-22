@@ -35,6 +35,20 @@ export class SprintsService {
       relations: ['project'],
       order: { startDate: 'DESC' },
     });
+
+    // Assign fresh counts to sprint entities without expensive DB updates
+    sprints.forEach((sprint) => {
+      const countData = countsMap.get(sprint.id);
+      if (countData) {
+        sprint.taskCount = countData.total;
+        sprint.completedTaskCount = countData.completed;
+      } else {
+        sprint.taskCount = 0;
+        sprint.completedTaskCount = 0;
+      }
+    });
+
+    return sprints;
   }
 
   async findOne(id: string): Promise<Sprint> {
