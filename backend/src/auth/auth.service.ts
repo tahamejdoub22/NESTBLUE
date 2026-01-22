@@ -41,7 +41,7 @@ export class AuthService {
     await this.usersService.updateRefreshToken(user.id, tokens.refreshToken);
 
     return {
-      user: this.usersService.sanitizeUser(user),
+      user,
       token: tokens.accessToken,
       refreshToken: tokens.refreshToken,
     };
@@ -68,7 +68,7 @@ export class AuthService {
     await this.usersService.updateRefreshToken(user.id, tokens.refreshToken);
 
     return {
-      user: this.usersService.sanitizeUser(user),
+      user,
       token: tokens.accessToken,
       refreshToken: tokens.refreshToken,
     };
