@@ -1,3 +1,3 @@
-## 2024-05-22 - [SprintsService N+1 Query]
-**Learning:** `SprintsService.findAll` was performing an N+1 query (actually 2N+2) by recalculating task counts for every sprint on every fetch. This was done to "ensure counts are fresh", but `TasksService` already maintains these counts on write.
-**Action:** Removed the recalculation loop from `findAll` and optimized `recalculateTaskCounts` to use `count()` queries instead of loading entities. Always verify if "read repair" logic is actually needed or if "write maintenance" is sufficient.
+## 2024-05-22 - [Redundant Read-Time Recalculation causing N+1]
+**Learning:** The `SprintsService.findAll` method was manually recalculating task counts for *every* sprint by fetching *all* tasks, creating a massive N+1 query problem and loading full entities into memory. This was done despite the system having event-driven updates (`updateTaskCountsForSprint`) triggered by `TasksService` on every write operation.
+**Action:** Trust the event-driven updates for list views (`findAll`). Only force recalculation on specific single-entity reads (`findOne`) if strictly necessary, and always use `count()` queries instead of loading full entities for aggregation.

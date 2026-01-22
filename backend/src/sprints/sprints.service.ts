@@ -27,6 +27,7 @@ export class SprintsService {
 
   async findAll(projectId?: string): Promise<Sprint[]> {
     const where = projectId ? { projectId } : {};
+    // Optimized: Removed N+1 loop. Counts are maintained by write operations in TasksService.
     return this.sprintsRepository.find({
       where,
       relations: ['project'],
@@ -142,17 +143,17 @@ export class SprintsService {
    */
   async recalculateTaskCounts(sprintId: string): Promise<void> {
     try {
+      // Optimized: Use count() instead of finding all entities to reduce memory usage and DB load
       const taskCount = await this.tasksRepository.count({
         where: { sprintId },
       });
 
-      const completedTaskCount = await this.tasksRepository
-        .createQueryBuilder('task')
-        .where('task.sprintId = :sprintId', { sprintId })
-        .andWhere('task.status IN (:...statuses)', {
-          statuses: ['complete', 'COMPLETE'],
-        })
-        .getCount();
+      const completedTaskCount = await this.tasksRepository.count({
+        where: [
+          { sprintId, status: TaskStatus.COMPLETE },
+          { sprintId, status: 'COMPLETE' as any }, // Handle legacy casing if present
+        ],
+      });
 
       await this.sprintsRepository.update(sprintId, {
         taskCount: Number(total),
