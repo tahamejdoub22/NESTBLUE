@@ -49,12 +49,15 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="relative w-full">
         {leftIcon && (
-          <div className={cn(
-            "absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10",
-            "flex items-center justify-center",
-            size === "sm" && "left-2.5",
-            size === "lg" && "left-4"
-          )}>
+          <div
+            className={cn(
+              "absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10",
+              "flex items-center justify-center",
+              size === "sm" && "left-2.5",
+              size === "lg" && "left-4"
+            )}
+            aria-hidden="true"
+          >
             <div className={cn(iconSize[size])}>
               {leftIcon}
             </div>
