@@ -150,6 +150,11 @@ export class DashboardService {
       // Calculate budget and cost metrics
       const budgetCostMetrics = await this.calculateBudgetCostMetrics(projects);
 
+      // Create a map for quick lookup of project budgets
+      const projectBudgetMap = new Map(
+        budgetCostMetrics.projectBudgets.map((pb) => [pb.projectId, pb]),
+      );
+
       // Transform projects to DashboardProject format
       const dashboardProjects = projects.map((project) => ({
         id: project.uid, // Use uid as id for frontend compatibility
@@ -162,7 +167,7 @@ export class DashboardService {
         teamMemberIds: [], // TODO: Add team member relationships
         color: project.color || '#6366f1',
         icon: project.icon || 'folder',
-        budget: this.calculateProjectBudget(project.uid),
+        budget: this.calculateProjectBudget(project.uid, projectBudgetMap.get(project.uid)),
         startDate: project.startDate || null,
         endDate: project.endDate || null,
         createdAt: project.createdAt || new Date(),
@@ -825,13 +830,23 @@ export class DashboardService {
     return months;
   }
 
-  private calculateProjectBudget(projectId: string) {
-    // TODO: Calculate actual budget from costs and budgets
+  private calculateProjectBudget(
+    projectId: string,
+    budgetData?: { budget: number; spent: number; remaining: number },
+  ) {
+    if (!budgetData) {
+      return {
+        total: 0,
+        currency: 'USD' as const,
+        spent: 0,
+        remaining: 0,
+      };
+    }
     return {
-      total: 0,
+      total: budgetData.budget,
       currency: 'USD' as const,
-      spent: 0,
-      remaining: 0,
+      spent: budgetData.spent,
+      remaining: budgetData.remaining,
     };
   }
 

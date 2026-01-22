@@ -16,6 +16,9 @@ describe('DashboardService', () => {
   let tasksRepository: Repository<Task>;
   let sprintsRepository: Repository<Sprint>;
   let projectsRepository: Repository<Project>;
+  let budgetsRepository: Repository<Budget>;
+  let costsRepository: Repository<Cost>;
+  let expensesRepository: Repository<Expense>;
 
   const mockQueryBuilder = {
     select: jest.fn().mockReturnThis(),
@@ -62,6 +65,9 @@ describe('DashboardService', () => {
     tasksRepository = module.get(getRepositoryToken(Task));
     sprintsRepository = module.get(getRepositoryToken(Sprint));
     projectsRepository = module.get(getRepositoryToken(Project));
+    budgetsRepository = module.get(getRepositoryToken(Budget));
+    costsRepository = module.get(getRepositoryToken(Cost));
+    expensesRepository = module.get(getRepositoryToken(Expense));
   });
 
   afterEach(() => {
@@ -107,6 +113,77 @@ describe('DashboardService', () => {
     expect(sprintsRepository.update).toHaveBeenCalledWith('sprint-2', {
       taskCount: 3,
       completedTaskCount: 3,
+    });
+  });
+
+  it('should calculate project budget correctly', async () => {
+    // Setup data
+    const project = { uid: 'proj-1', name: 'Project 1' };
+    const budgets = [{ projectId: 'proj-1', amount: 1000 }];
+    const costs = [{ projectId: 'proj-1', amount: 200 }];
+    const expenses = [{ projectId: 'proj-1', amount: 50 }];
+
+    // Mock responses
+    mockProjectsRepository.find.mockResolvedValue([project]);
+    mockTasksRepository.find.mockResolvedValue([]);
+    mockSprintsRepository.find.mockResolvedValue([]);
+
+    // Mock budget/cost/expense repositories using the shared mockRepository
+    // Since they all use mockRepository, we can just spy on the find method of each injected instance
+    // Note: In the beforeEach, we assigned mockRepository to these tokens.
+    // However, mockRepository.find is a shared jest.fn().
+    // To mock specific return values per repository, we might need to rely on the fact that
+    // NestJS testing module provides the SAME instance of mockRepository for all of them.
+    // BUT, we want different returns for different calls? No, find is called once for each.
+    // So we can mock the implementation of find to return different things based on what is being asked?
+    // Or simpler: The DashboardService calls budgetsRepository.find, costsRepository.find, expensesRepository.find sequentially.
+    // But since they are all the SAME mock object, calling mockResolvedValue on one affects all.
+
+    // We need to distinguish them.
+    // Let's check how they are provided.
+    // { provide: getRepositoryToken(Budget), useValue: mockRepository },
+    // They share the same object. This is a problem for mocking different responses for find().
+
+    // However, calculateBudgetCostMetrics calls:
+    // budgetsRepository.find({ relations: ['project'] })
+    // costsRepository.find({ relations: ['project'] })
+    // expensesRepository.find({ relations: ['project'] })
+
+    // Since they are the same mock function, we can use mockReturnValueOnce.
+    // The order of calls in calculateBudgetCostMetrics is: budgets, costs, expenses.
+
+    // Reset the shared mock first (cleared in afterEach, but good to be sure)
+    const findMock = budgetsRepository.find as jest.Mock;
+    findMock.mockReset();
+
+    // Sequence of find calls in getDashboardData:
+    // 1. projectsRepository.find (mockProjectsRepository)
+    // 2. tasksRepository.find (mockTasksRepository)
+    // 3. sprintsRepository.find (mockSprintsRepository) - active sprints
+    // 4. tasksRepository.createQueryBuilder (mockTasksRepository)
+    // 5. usersRepository.find (mockRepository)
+    // 6. notificationsRepository.find (mockRepository) -> getUserActivity
+    // 7. budgetsRepository.find (mockRepository) -> calculateBudgetCostMetrics
+    // 8. costsRepository.find (mockRepository) -> calculateBudgetCostMetrics
+    // 9. expensesRepository.find (mockRepository) -> calculateBudgetCostMetrics
+
+    // So we need to mock responses for users, notifications, budgets, costs, expenses.
+
+    findMock
+      .mockResolvedValueOnce([]) // users
+      .mockResolvedValueOnce([]) // notifications
+      .mockResolvedValueOnce(budgets) // budgets
+      .mockResolvedValueOnce(costs) // costs
+      .mockResolvedValueOnce(expenses); // expenses
+
+    const result = await service.getDashboardData('user-1');
+
+    expect(result.projects).toHaveLength(1);
+    expect(result.projects[0].budget).toEqual({
+      total: 1000,
+      currency: 'USD',
+      spent: 250,
+      remaining: 750,
     });
   });
 });
