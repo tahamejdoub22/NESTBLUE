@@ -1,6 +1,8 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { User } from '../../users/entities/user.entity';
+import { Project } from '../../projects/entities/project.entity';
+import { Task } from '../../tasks/entities/task.entity';
 
 export enum NotificationType {
   INFO = 'info',
@@ -46,7 +48,15 @@ export class Notification extends BaseEntity {
   @Column({ type: 'varchar', length: 50, nullable: true })
   projectId: string;
 
+  @ManyToOne(() => Project, { nullable: true })
+  @JoinColumn({ name: 'projectId', referencedColumnName: 'uid' })
+  project: Project;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   taskId: string;
+
+  @ManyToOne(() => Task, { nullable: true })
+  @JoinColumn({ name: 'taskId', referencedColumnName: 'uid' })
+  task: Task;
 }
 

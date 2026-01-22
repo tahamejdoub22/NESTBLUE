@@ -582,7 +582,7 @@ export class DashboardService {
         where: { userId },
         order: { createdAt: 'DESC' },
         take: 20,
-        relations: ['user'],
+        relations: ['user', 'project', 'task'],
       });
 
       return notifications.map((notif) => ({
@@ -593,9 +593,9 @@ export class DashboardService {
         type: this.mapNotificationTypeToActivityType(notif.type),
         description: notif.message || '',
         projectId: notif.projectId || null,
-        projectName: undefined, // TODO: Load project name
+        projectName: notif.project?.name,
         taskId: notif.taskId || null,
-        taskTitle: undefined, // TODO: Load task title
+        taskTitle: notif.task?.title,
         createdAt: notif.createdAt,
         updatedAt: notif.updatedAt,
       }));
