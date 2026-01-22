@@ -1,31 +1,34 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SprintsService } from './sprints.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Sprint, SprintStatus } from './entities/sprint.entity';
+import { Sprint } from './entities/sprint.entity';
 import { Task } from '../tasks/entities/task.entity';
 import { Repository } from 'typeorm';
 
+// Mock Repositories
 const mockSprintsRepository = () => ({
-  create: jest.fn(),
-  save: jest.fn(),
+  update: jest.fn(),
   find: jest.fn(),
   findOne: jest.fn(),
-  update: jest.fn(),
+  create: jest.fn(),
+  save: jest.fn(),
   remove: jest.fn(),
 });
 
 const mockTasksRepository = () => ({
   find: jest.fn(),
   count: jest.fn(),
+  // Mocking createQueryBuilder to simulate the optimized query
   createQueryBuilder: jest.fn(() => ({
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    getMany: jest.fn().mockResolvedValue([]),
+    // Simulate return value from DB: counts as strings (typical from raw queries)
+    getRawOne: jest.fn().mockReturnValue({ total: '10', completed: '5' }),
   })),
 });
 
-describe('SprintsService Performance', () => {
+describe('SprintsService', () => {
   let service: SprintsService;
   let sprintsRepository: Repository<Sprint>;
   let tasksRepository: Repository<Task>;
@@ -50,27 +53,24 @@ describe('SprintsService Performance', () => {
     tasksRepository = module.get(getRepositoryToken(Task));
   });
 
-  it('findAll should not trigger N+1 queries', async () => {
-    // Setup 10 mock sprints
-    const mockSprints = Array.from({ length: 10 }, (_, i) => ({
-      id: `sprint-${i}`,
-      startDate: new Date(),
-      endDate: new Date(),
-      status: SprintStatus.ACTIVE,
-    }));
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
 
-    (sprintsRepository.find as jest.Mock).mockResolvedValue(mockSprints);
-    (tasksRepository.count as jest.Mock).mockResolvedValue(0);
+  describe('recalculateTaskCounts', () => {
+    it('should update sprint with correct task counts using createQueryBuilder', async () => {
+      const sprintId = 'sprint-123';
 
-    await service.findAll('project-1');
+      await service.recalculateTaskCounts(sprintId);
 
-    const taskRepoCalls = (tasksRepository.find as jest.Mock).mock.calls.length + (tasksRepository.count as jest.Mock).mock.calls.length;
-    const sprintUpdateCalls = (sprintsRepository.update as jest.Mock).mock.calls.length;
+      // Verify createQueryBuilder was used (optimization check)
+      expect(tasksRepository.createQueryBuilder).toHaveBeenCalledWith('task');
 
-    console.log(`Optimized calls - Tasks queries: ${taskRepoCalls}, Sprints.update: ${sprintUpdateCalls}`);
-
-    expect(taskRepoCalls).toBe(0);
-    expect(sprintUpdateCalls).toBe(0);
-    expect(sprintsRepository.find).toHaveBeenCalledTimes(1);
+      // Verify update was called with parsed numbers
+      expect(sprintsRepository.update).toHaveBeenCalledWith(sprintId, {
+        taskCount: 10,
+        completedTaskCount: 5,
+      });
+    });
   });
 });

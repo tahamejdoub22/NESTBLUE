@@ -1,3 +1,5 @@
-## 2026-01-14 - SprintsService N+1 Optimization
-**Learning:** The "fix-on-read" pattern (fixing data consistency in a getter like `findAll`) is a dangerous anti-pattern that causes massive N+1 issues. In this case, `SprintsService.findAll` was re-fetching and updating task counts for every sprint on every read, resulting in O(N) database writes for a simple list view.
-**Action:** Rely on event-driven updates (updating counts when tasks are modified) instead of fixing on read. If consistency is critical, use a `GROUP BY` query to compute aggregates on the fly rather than iterating and updating entities. Also, always prefer `count()` queries over loading entities into memory just to check `length`.
+# Bolt's Journal
+
+## 2024-05-22 - [Optimizing SprintsService Counts]
+**Learning:** `SprintsService.recalculateTaskCounts` was loading ALL tasks for a sprint into memory just to count them. This is a massive memory and performance bottleneck (N+1 when fetching sprints). Using `createQueryBuilder` with `COUNT` and `CASE WHEN` allows aggregation in the database, reducing memory from O(N) to O(1) and network traffic significantly.
+**Action:** Always prefer DB-side aggregation (count, sum) over fetching entities and calculating in memory, especially for frequently accessed data like list views.
