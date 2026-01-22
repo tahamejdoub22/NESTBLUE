@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Sprint, SprintStatus } from './entities/sprint.entity';
-import { Task } from '../tasks/entities/task.entity';
+import { Task, TaskStatus } from '../tasks/entities/task.entity';
 import { CreateSprintDto } from './dto/create-sprint.dto';
 import { UpdateSprintDto } from './dto/update-sprint.dto';
 
@@ -154,11 +154,14 @@ export class SprintsService {
       });
 
       await this.sprintsRepository.update(sprintId, {
-        taskCount,
-        completedTaskCount,
+        taskCount: Number(total),
+        completedTaskCount: Number(completed),
       });
     } catch (error) {
-      console.error(`Error recalculating task counts for sprint ${sprintId}:`, error);
+      console.error(
+        `Error recalculating task counts for sprint ${sprintId}:`,
+        error,
+      );
       // Don't throw error to prevent blocking other operations
     }
   }
