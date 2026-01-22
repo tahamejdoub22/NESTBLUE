@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Project } from '../projects/entities/project.entity';
 import { Task, TaskStatus, TaskPriority } from '../tasks/entities/task.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
@@ -585,6 +585,42 @@ export class DashboardService {
         relations: ['user'],
       });
 
+      // Extract unique project IDs and task IDs
+      const projectIds = [
+        ...new Set(
+          notifications
+            .map((n) => n.projectId)
+            .filter((id): id is string => !!id),
+        ),
+      ];
+      const taskIds = [
+        ...new Set(
+          notifications.map((n) => n.taskId).filter((id): id is string => !!id),
+        ),
+      ];
+
+      // Fetch projects and tasks
+      let projects: Project[] = [];
+      let tasks: Task[] = [];
+
+      if (projectIds.length > 0) {
+        projects = await this.projectsRepository.find({
+          where: { uid: In(projectIds) },
+          select: ['uid', 'name'],
+        });
+      }
+
+      if (taskIds.length > 0) {
+        tasks = await this.tasksRepository.find({
+          where: { uid: In(taskIds) },
+          select: ['uid', 'title'],
+        });
+      }
+
+      // Create lookups
+      const projectMap = new Map(projects.map((p) => [p.uid, p.name]));
+      const taskMap = new Map(tasks.map((t) => [t.uid, t.title]));
+
       return notifications.map((notif) => ({
         id: notif.id,
         userId: notif.userId,
@@ -593,9 +629,13 @@ export class DashboardService {
         type: this.mapNotificationTypeToActivityType(notif.type),
         description: notif.message || '',
         projectId: notif.projectId || null,
-        projectName: undefined, // TODO: Load project name
+        projectName: notif.projectId
+          ? projectMap.get(notif.projectId) || 'Unknown Project'
+          : undefined,
         taskId: notif.taskId || null,
-        taskTitle: undefined, // TODO: Load task title
+        taskTitle: notif.taskId
+          ? taskMap.get(notif.taskId) || 'Unknown Task'
+          : undefined,
         createdAt: notif.createdAt,
         updatedAt: notif.updatedAt,
       }));
