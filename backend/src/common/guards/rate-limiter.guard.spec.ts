@@ -1,5 +1,5 @@
 import { RateLimiterGuard } from './rate-limiter.guard';
-import { ExecutionContext, HttpStatus, HttpException } from '@nestjs/common';
+import { ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
 
 describe('RateLimiterGuard', () => {
   let guard: RateLimiterGuard;
@@ -7,12 +7,15 @@ describe('RateLimiterGuard', () => {
   let mockRequest: any;
 
   beforeEach(() => {
+    RateLimiterGuard.reset(); // Clear storage before each test
     guard = new RateLimiterGuard();
+
     mockRequest = {
       ip: '127.0.0.1',
       headers: {},
       socket: { remoteAddress: '127.0.0.1' },
     };
+
     mockContext = {
       switchToHttp: () => ({
         getRequest: () => mockRequest,
@@ -20,32 +23,89 @@ describe('RateLimiterGuard', () => {
     };
   });
 
-  it('should allow first 5 requests', () => {
-    const ip = '10.0.0.1';
-    mockRequest.ip = ip;
-
+  it('should allow requests under the limit', () => {
+    // 5 requests allowed
     for (let i = 0; i < 5; i++) {
       expect(guard.canActivate(mockContext as ExecutionContext)).toBe(true);
     }
   });
 
-  it('should block 6th request', () => {
-    const ip = '10.0.0.2';
-    mockRequest.ip = ip;
-
+  it('should block the 6th request', () => {
+    // 5 requests allowed
     for (let i = 0; i < 5; i++) {
       guard.canActivate(mockContext as ExecutionContext);
     }
 
-    let caughtError: any;
+    // 6th request should fail
+    expect(() => guard.canActivate(mockContext as ExecutionContext)).toThrow(
+      HttpException,
+    );
+
     try {
-      guard.canActivate(mockContext as ExecutionContext);
+        guard.canActivate(mockContext as ExecutionContext);
     } catch (e) {
-      caughtError = e;
+        if (e instanceof HttpException) {
+            expect(e.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+            expect(e.message).toBe('Too many login attempts. Please try again later.');
+        } else {
+            throw e;
+        }
+    }
+  });
+
+  it('should use req.ip if available', () => {
+    mockRequest.ip = '10.0.0.1';
+
+    // Trigger one request with this IP
+    guard.canActivate(mockContext as ExecutionContext);
+
+    // Now change IP to simulate another user
+    mockRequest.ip = '10.0.0.2';
+
+    // Fill up quota for user 2
+    for(let i=0; i<5; i++) {
+        expect(guard.canActivate(mockContext as ExecutionContext)).toBe(true);
     }
 
-    expect(caughtError).toBeInstanceOf(HttpException);
-    expect(caughtError.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
-    expect((caughtError.getResponse() as any).message).toBe('Too many login attempts, please try again later');
+    // User 2 should be blocked
+    expect(() => guard.canActivate(mockContext as ExecutionContext)).toThrow();
+
+    // User 1 (10.0.0.1) should still be allowed (only 1 request used)
+    mockRequest.ip = '10.0.0.1';
+    expect(guard.canActivate(mockContext as ExecutionContext)).toBe(true);
+  });
+
+  it('should fallback to socket.remoteAddress if req.ip missing', () => {
+      mockRequest.ip = undefined;
+      mockRequest.socket.remoteAddress = '192.168.1.1';
+
+      expect(guard.canActivate(mockContext as ExecutionContext)).toBe(true);
+  });
+
+  it('should reset count after window expires', () => {
+    const realDateNow = Date.now;
+    const startTime = 1000000000000;
+
+    try {
+        // Mock Date.now
+        global.Date.now = jest.fn(() => startTime);
+
+        // Use up limits
+        for (let i = 0; i < 5; i++) {
+            guard.canActivate(mockContext as ExecutionContext);
+        }
+
+        // Verify blocked
+        expect(() => guard.canActivate(mockContext as ExecutionContext)).toThrow();
+
+        // Fast forward 16 minutes (window is 15 mins)
+        global.Date.now = jest.fn(() => startTime + 16 * 60 * 1000);
+
+        // Should be allowed again
+        expect(guard.canActivate(mockContext as ExecutionContext)).toBe(true);
+
+    } finally {
+        global.Date.now = realDateNow;
+    }
   });
 });

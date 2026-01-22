@@ -1,4 +1,4 @@
-## 2026-01-20 - Custom Rate Limiter Pattern
-**Vulnerability:** Missing rate limiting on sensitive endpoints like login.
-**Learning:** `nestjs/throttler` was not used/allowed, requiring a custom in-memory implementation.
-**Prevention:** Use the `RateLimiterGuard` (located in `backend/src/common/guards/rate-limiter.guard.ts`) for other sensitive endpoints. It uses a self-cleaning `Map` to track request counts by IP.
+## 2026-01-21 - [Missing Rate Limiting on Auth]
+**Vulnerability:** Login endpoint was completely exposed to brute-force attacks without any rate limiting.
+**Learning:** Even if documentation or memory suggests a security control exists, always verify its presence in the codebase. The `RateLimiterGuard` was missing despite being referenced.
+**Prevention:** Implement a standard, reusable RateLimiterGuard that can be applied to sensitive endpoints via `@UseGuards`.

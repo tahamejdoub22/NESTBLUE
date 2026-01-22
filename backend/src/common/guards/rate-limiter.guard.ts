@@ -1,64 +1,83 @@
-import { Injectable, CanActivate, ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 
 @Injectable()
 export class RateLimiterGuard implements CanActivate {
-  // Use a static map to share state across instances
-  // Key: IP address
-  // Value: { count: number, expiresAt: number }
-  private static readonly requests = new Map<string, { count: number; expiresAt: number }>();
+  private readonly logger = new Logger(RateLimiterGuard.name);
 
-  // Configuration: 5 attempts per 15 minutes
-  private static readonly WINDOW_MS = 15 * 60 * 1000;
-  private static readonly MAX_REQUESTS = 5;
+  // Static storage to share state across potential multiple instances
+  // Key: IP address, Value: { count, expiresAt }
+  private static readonly storage = new Map<string, { count: number; expiresAt: number }>();
 
-  // Cleanup interval
-  private static cleanupInterval: NodeJS.Timeout;
+  // Configuration: 5 requests per 15 minutes
+  private readonly WINDOW_MS = 15 * 60 * 1000;
+  private readonly MAX_REQUESTS = 5;
 
   constructor() {
-    // Start cleanup interval if not already started
-    if (!RateLimiterGuard.cleanupInterval) {
-      RateLimiterGuard.cleanupInterval = setInterval(() => {
-        const now = Date.now();
-        for (const [key, val] of RateLimiterGuard.requests.entries()) {
-          if (now > val.expiresAt) {
-            RateLimiterGuard.requests.delete(key);
-          }
+    // Self-cleaning mechanism to remove expired entries
+    const cleanup = setInterval(() => {
+      const now = Date.now();
+      for (const [key, value] of RateLimiterGuard.storage.entries()) {
+        if (now > value.expiresAt) {
+          RateLimiterGuard.storage.delete(key);
         }
-      }, 60 * 60 * 1000); // Clean up every hour
-
-      // Prevent this interval from keeping the process alive
-      if (RateLimiterGuard.cleanupInterval.unref) {
-        RateLimiterGuard.cleanupInterval.unref();
       }
+    }, 60000); // Check every minute
+
+    // Allow process to exit even if this interval is running
+    if (cleanup.unref) {
+      cleanup.unref();
     }
   }
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
-    // Get IP address
-    const ip = request.ip || request.headers['x-forwarded-for'] || request.socket?.remoteAddress || 'unknown';
 
-    const now = Date.now();
-    const record = RateLimiterGuard.requests.get(ip);
+    // Use framework's IP resolution which respects trust proxy settings
+    // This prevents IP spoofing via fake X-Forwarded-For headers
+    const ip = request.ip || request.socket?.remoteAddress;
 
-    if (record) {
-      if (now > record.expiresAt) {
-        // Expired, reset
-        RateLimiterGuard.requests.set(ip, { count: 1, expiresAt: now + RateLimiterGuard.WINDOW_MS });
-      } else {
-        if (record.count >= RateLimiterGuard.MAX_REQUESTS) {
-           throw new HttpException({
-             statusCode: HttpStatus.TOO_MANY_REQUESTS,
-             message: 'Too many login attempts, please try again later',
-             error: 'Too Many Requests'
-           }, HttpStatus.TOO_MANY_REQUESTS);
-        }
-        record.count++;
-      }
-    } else {
-      RateLimiterGuard.requests.set(ip, { count: 1, expiresAt: now + RateLimiterGuard.WINDOW_MS });
+    if (!ip) {
+      // If we can't identify the caller, we can't rate limit effectively.
+      // Log warning and fail open to avoid blocking legitimate users.
+      this.logger.warn('RateLimiter: Could not determine IP address');
+      return true;
     }
 
+    const now = Date.now();
+    const record = RateLimiterGuard.storage.get(ip);
+
+    // If no record exists or the window has expired, start a new window
+    if (!record || now > record.expiresAt) {
+      RateLimiterGuard.storage.set(ip, {
+        count: 1,
+        expiresAt: now + this.WINDOW_MS,
+      });
+      return true;
+    }
+
+    // Check if limit exceeded
+    if (record.count >= this.MAX_REQUESTS) {
+      this.logger.warn(`Rate limit exceeded for IP: ${ip}`);
+      throw new HttpException(
+        'Too many login attempts. Please try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    // Increment count
+    record.count++;
     return true;
+  }
+
+  // Helper for testing to reset storage
+  static reset() {
+    this.storage.clear();
   }
 }
