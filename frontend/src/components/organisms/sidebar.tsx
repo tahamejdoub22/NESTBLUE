@@ -699,6 +699,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                   size="icon" 
                   onClick={() => setIsCreateSpaceModalOpen(true)}
                   className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-200 hover:scale-110"
+                  aria-label="Create new space"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -810,6 +811,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                               e.preventDefault();
                               setIsCreateSpaceModalOpen(true);
                             }}
+                            aria-label="Create new space"
                           >
                             <Plus className="h-4 w-4" />
                           </Button>
@@ -1019,6 +1021,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                           setHoveredItem(null);
                           setFlyoutPosition(null);
                         }}
+                        aria-label="Create new space"
                       >
                         <Plus className="h-3.5 w-3.5" />
                       </Button>
@@ -1146,6 +1149,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                   onClick={() => setIsNewConversationOpen(true)}
                   aria-label="Create new conversation"
                   className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-200 hover:scale-110"
+                  aria-label="Start new conversation"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -1162,6 +1166,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                         onClick={() => setIsNewConversationOpen(true)}
                         aria-label="Create new conversation"
                         className="h-10 w-10 rounded-xl hover:bg-primary/10 hover:text-primary transition-all duration-200 hover:scale-110"
+                        aria-label="Start new conversation"
                       >
                         <MessageSquare className="h-5 w-5" />
                       </Button>
