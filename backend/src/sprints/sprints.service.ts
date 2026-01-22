@@ -159,23 +159,29 @@ export class SprintsService {
    */
   async recalculateTaskCounts(sprintId: string): Promise<void> {
     try {
-      const [taskCount, completedTaskCount] = await Promise.all([
-        this.tasksRepository.count({ where: { sprintId } }),
-        this.tasksRepository.count({
-          where: [
-            { sprintId, status: TaskStatus.COMPLETE },
-            // Cast to any to handle potential inconsistent data in DB that violates types
-            { sprintId, status: 'COMPLETE' as any },
-          ],
-        }),
-      ]);
+      // Optimized: Use DB aggregation instead of loading all task entities into memory
+      const result = await this.tasksRepository
+        .createQueryBuilder('task')
+        .select('COUNT(*)', 'count')
+        .addSelect(
+          "COUNT(CASE WHEN task.status = 'complete' OR task.status = 'COMPLETE' THEN 1 END)",
+          'completedCount',
+        )
+        .where('task.sprintId = :sprintId', { sprintId })
+        .getRawOne();
+
+      const taskCount = parseInt(result?.count || '0', 10);
+      const completedTaskCount = parseInt(result?.completedCount || '0', 10);
 
       await this.sprintsRepository.update(sprintId, {
         taskCount,
         completedTaskCount,
       });
     } catch (error) {
-      console.error(`Error recalculating task counts for sprint ${sprintId}:`, error);
+      console.error(
+        `Error recalculating task counts for sprint ${sprintId}:`,
+        error,
+      );
       // Don't throw error to prevent blocking other operations
     }
   }
