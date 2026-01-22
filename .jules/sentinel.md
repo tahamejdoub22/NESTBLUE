@@ -1,4 +1,4 @@
-## 2026-01-21 - [Missing Rate Limiting on Auth]
-**Vulnerability:** Login endpoint was completely exposed to brute-force attacks without any rate limiting.
-**Learning:** Even if documentation or memory suggests a security control exists, always verify its presence in the codebase. The `RateLimiterGuard` was missing despite being referenced.
-**Prevention:** Implement a standard, reusable RateLimiterGuard that can be applied to sensitive endpoints via `@UseGuards`.
+## 2026-01-22 - Missing Critical Security Guard
+**Vulnerability:** The RateLimiterGuard for the login endpoint was completely missing from the codebase.
+**Learning:** Security controls assumed to be present (like rate limiting on auth) must be explicitly verified in the code.
+**Prevention:** Always verify the existence and application of security guards during security reviews.
