@@ -14,6 +14,7 @@ import { Budget } from '../../budgets/entities/budget.entity';
 import { Contract } from '../../contracts/entities/contract.entity';
 import { Sprint } from '../../sprints/entities/sprint.entity';
 import { TeamSpace } from './team-space.entity';
+import { ProjectMember } from './project-member.entity';
 
 export enum ProjectStatus {
   ACTIVE = 'active',
@@ -92,6 +93,9 @@ export class Project {
 
   @OneToMany(() => Sprint, (sprint) => sprint.project)
   sprints: Sprint[];
+
+  @OneToMany(() => ProjectMember, (member) => member.project)
+  members: ProjectMember[];
 }
 
 
