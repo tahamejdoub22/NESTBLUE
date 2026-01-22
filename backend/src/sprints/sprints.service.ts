@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Sprint, SprintStatus } from './entities/sprint.entity';
-import { Task } from '../tasks/entities/task.entity';
+import { Task, TaskStatus } from '../tasks/entities/task.entity';
 import { CreateSprintDto } from './dto/create-sprint.dto';
 import { UpdateSprintDto } from './dto/update-sprint.dto';
 
@@ -185,16 +185,16 @@ export class SprintsService {
    */
   async recalculateTaskCounts(sprintId: string): Promise<void> {
     try {
-      // Optimize: Use count() instead of loading all task entities
       const taskCount = await this.tasksRepository.count({
         where: { sprintId },
       });
 
-      const completedTaskCount = await this.tasksRepository
-        .createQueryBuilder('task')
-        .where('task.sprintId = :sprintId', { sprintId })
-        .andWhere("(task.status = 'complete' OR task.status = 'COMPLETE')")
-        .getCount();
+      const completedTaskCount = await this.tasksRepository.count({
+        where: [
+          { sprintId, status: TaskStatus.COMPLETE },
+          { sprintId, status: 'COMPLETE' as any },
+        ],
+      });
 
       await this.sprintsRepository.update(sprintId, {
         taskCount,
