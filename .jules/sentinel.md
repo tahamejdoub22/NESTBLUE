@@ -1,6 +1,4 @@
-# Sentinel Journal
-
-## 2024-05-23 - Hardcoded Secrets in Setup Script
-**Vulnerability:** A setup script (`backend/setup-env.js`) contained hardcoded real credentials for a Neon PostgreSQL database and Neon API key, as well as sensitive configuration defaults.
-**Learning:** Helper scripts often bypass security reviews because they are seen as "dev tools", but if they are committed to the repo, they expose secrets to everyone.
-**Prevention:** Never include real credentials in any committed file, even templates or setup scripts. Use obvious placeholders like `your_password_here`.
+## 2026-01-20 - Custom Rate Limiter Pattern
+**Vulnerability:** Missing rate limiting on sensitive endpoints like login.
+**Learning:** `nestjs/throttler` was not used/allowed, requiring a custom in-memory implementation.
+**Prevention:** Use the `RateLimiterGuard` (located in `backend/src/common/guards/rate-limiter.guard.ts`) for other sensitive endpoints. It uses a self-cleaning `Map` to track request counts by IP.

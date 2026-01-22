@@ -1,76 +1,51 @@
-import { RateLimiterGuard } from "./rate-limiter.guard";
-import { ExecutionContext, HttpException, HttpStatus } from "@nestjs/common";
+import { RateLimiterGuard } from './rate-limiter.guard';
+import { ExecutionContext, HttpStatus, HttpException } from '@nestjs/common';
 
-describe("RateLimiterGuard", () => {
+describe('RateLimiterGuard', () => {
   let guard: RateLimiterGuard;
-
-  const createMockContext = (ip: string) => {
-    return {
-      switchToHttp: () => ({
-        getRequest: () => ({
-          headers: { "x-forwarded-for": ip },
-          socket: { remoteAddress: ip },
-        }),
-      }),
-    } as unknown as ExecutionContext;
-  };
+  let mockContext: Partial<ExecutionContext>;
+  let mockRequest: any;
 
   beforeEach(() => {
     guard = new RateLimiterGuard();
-    // Clear static storage between tests
-    (RateLimiterGuard as any).limits.clear();
+    mockRequest = {
+      ip: '127.0.0.1',
+      headers: {},
+      socket: { remoteAddress: '127.0.0.1' },
+    };
+    mockContext = {
+      switchToHttp: () => ({
+        getRequest: () => mockRequest,
+      } as any),
+    };
   });
 
-  afterEach(() => {
-    (RateLimiterGuard as any).limits.clear();
-  });
+  it('should allow first 5 requests', () => {
+    const ip = '10.0.0.1';
+    mockRequest.ip = ip;
 
-  it("should allow requests under the limit", () => {
-    const context = createMockContext("127.0.0.1");
-    // Default limit is 5
-    expect(guard.canActivate(context)).toBe(true);
-    expect(guard.canActivate(context)).toBe(true);
-    expect(guard.canActivate(context)).toBe(true);
-    expect(guard.canActivate(context)).toBe(true);
-    expect(guard.canActivate(context)).toBe(true);
-  });
-
-  it("should block requests over the limit", () => {
-    const context = createMockContext("127.0.0.1");
-    // Consume 5 requests
     for (let i = 0; i < 5; i++) {
-      guard.canActivate(context);
-    }
-
-    // 6th request should fail
-    try {
-      guard.canActivate(context);
-      throw new Error("Should have thrown HttpException");
-    } catch (error) {
-      expect(error).toBeInstanceOf(HttpException);
-      expect((error as HttpException).getStatus()).toBe(
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+      expect(guard.canActivate(mockContext as ExecutionContext)).toBe(true);
     }
   });
 
-  it("should track different IPs separately", () => {
-    const context1 = createMockContext("127.0.0.1");
-    const context2 = createMockContext("192.168.1.1");
+  it('should block 6th request', () => {
+    const ip = '10.0.0.2';
+    mockRequest.ip = ip;
 
-    // Max out IP 1
     for (let i = 0; i < 5; i++) {
-      guard.canActivate(context1);
+      guard.canActivate(mockContext as ExecutionContext);
     }
 
-    // IP 1 blocked
+    let caughtError: any;
     try {
-      guard.canActivate(context1);
-    } catch (error) {
-      expect(error).toBeInstanceOf(HttpException);
+      guard.canActivate(mockContext as ExecutionContext);
+    } catch (e) {
+      caughtError = e;
     }
 
-    // IP 2 should still be allowed
-    expect(guard.canActivate(context2)).toBe(true);
+    expect(caughtError).toBeInstanceOf(HttpException);
+    expect(caughtError.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+    expect((caughtError.getResponse() as any).message).toBe('Too many login attempts, please try again later');
   });
 });
