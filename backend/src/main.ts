@@ -1,8 +1,10 @@
-import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { NestFactory, Reflector } from '@nestjs/core';
+import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
@@ -36,6 +38,12 @@ async function bootstrap() {
     const configService = app.get(ConfigService);
     console.log('✅ Config service initialized');
 
+    // Security: Use Helmet to set various HTTP headers
+    // Note: Disabling CSP for now to ensure Swagger UI compatibility
+    app.use(helmet({
+      contentSecurityPolicy: false,
+    }));
+
     // Enable CORS
     // Allow requests from Next.js frontend (default port 3000) and other configured origins
     const corsOrigin = configService.get('CORS_ORIGIN') as string | undefined;
@@ -48,6 +56,12 @@ async function bootstrap() {
       credentials: true,
     });
 
+    // Use Helmet for security headers
+    // contentSecurityPolicy is disabled to ensure Swagger UI compatibility
+    app.use(helmet({
+      contentSecurityPolicy: false,
+    }));
+
     // Global validation pipe
     app.useGlobalPipes(
       new ValidationPipe({
@@ -58,7 +72,10 @@ async function bootstrap() {
     );
 
     // Global response transformer
-    app.useGlobalInterceptors(new TransformInterceptor());
+    app.useGlobalInterceptors(
+      new TransformInterceptor(),
+      new ClassSerializerInterceptor(app.get(Reflector)),
+    );
 
     // Global exception filter
     app.useGlobalFilters(new HttpExceptionFilter());
