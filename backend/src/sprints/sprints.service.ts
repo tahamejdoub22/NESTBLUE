@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Sprint, SprintStatus } from './entities/sprint.entity';
 import { Task, TaskStatus } from '../tasks/entities/task.entity';
 import { CreateSprintDto } from './dto/create-sprint.dto';
@@ -26,25 +26,12 @@ export class SprintsService {
   }
 
   async findAll(projectId?: string): Promise<Sprint[]> {
-    const queryBuilder = this.sprintsRepository.createQueryBuilder('sprint')
-      .leftJoinAndSelect('sprint.project', 'project')
-      .loadRelationCountAndMap('sprint.taskCount', 'sprint.tasks', 'tasks')
-      .loadRelationCountAndMap(
-        'sprint.completedTaskCount',
-        'sprint.tasks',
-        'tasks',
-        (qb) => qb.where('(tasks.status = :lower OR tasks.status = :upper)', {
-          lower: 'complete',
-          upper: 'COMPLETE',
-        })
-      )
-      .orderBy('sprint.startDate', 'DESC');
-
-    if (projectId) {
-      queryBuilder.where('sprint.projectId = :projectId', { projectId });
-    }
-
-    return await queryBuilder.getMany();
+    const where = projectId ? { projectId } : {};
+    return this.sprintsRepository.find({
+      where,
+      relations: ['project'],
+      order: { startDate: 'DESC' },
+    });
   }
 
   async findOne(id: string): Promise<Sprint> {
@@ -159,18 +146,12 @@ export class SprintsService {
         where: { sprintId },
       });
 
-      // Using createQueryBuilder for completed tasks to handle inconsistent casing if needed
-      // or just standard TypeORM with proper enum if data was clean.
-      // Based on previous code: task.status === 'complete' || (task.status as string) === 'COMPLETE'
-      // It implies data might be mixed.
-      const completedTaskCount = await this.tasksRepository
-        .createQueryBuilder('task')
-        .where('task.sprintId = :sprintId', { sprintId })
-        .andWhere('(task.status = :lower OR task.status = :upper)', {
-          lower: 'complete',
-          upper: 'COMPLETE',
-        })
-        .getCount();
+      const completedTaskCount = await this.tasksRepository.count({
+        where: {
+          sprintId,
+          status: In(['complete', 'COMPLETE']) as any,
+        },
+      });
 
       await this.sprintsRepository.update(sprintId, {
         taskCount: Number(total),
@@ -194,4 +175,3 @@ export class SprintsService {
     await this.recalculateTaskCounts(sprintId);
   }
 }
-
