@@ -50,16 +50,52 @@ export class DashboardService {
         relations: ['project'],
       }).catch(() => []);
 
-      // Recalculate counts for active sprints to ensure dashboard data is true
-      for (const sprint of activeSprints) {
-        const tasks = await this.tasksRepository.find({ where: { sprintId: sprint.id } });
-        sprint.taskCount = tasks.length;
-        sprint.completedTaskCount = tasks.filter(t => t.status === 'complete').length;
-        // Optionally save back to database if they changed
-        await this.sprintsRepository.update(sprint.id, {
-          taskCount: sprint.taskCount,
-          completedTaskCount: sprint.completedTaskCount,
-        });
+      // Optimization: Get task counts for all active sprints in one query using database aggregation
+      const sprintIds = activeSprints.map((s) => s.id);
+
+      if (sprintIds.length > 0) {
+        const counts = await this.tasksRepository
+          .createQueryBuilder('task')
+          .select('task.sprintId', 'sprintId')
+          .addSelect('COUNT(task.uid)', 'count')
+          .addSelect(
+            "SUM(CASE WHEN task.status = 'complete' THEN 1 ELSE 0 END)",
+            'completedCount',
+          )
+          .where('task.sprintId IN (:...sprintIds)', { sprintIds })
+          .groupBy('task.sprintId')
+          .getRawMany();
+
+        const countMap = new Map(
+          counts.map((c) => [
+            c.sprintId,
+            {
+              count: parseInt(c.count, 10) || 0,
+              completedCount: parseInt(c.completedCount, 10) || 0,
+            },
+          ]),
+        );
+
+        for (const sprint of activeSprints) {
+          const stats = countMap.get(sprint.id) || {
+            count: 0,
+            completedCount: 0,
+          };
+
+          if (
+            sprint.taskCount !== stats.count ||
+            sprint.completedTaskCount !== stats.completedCount
+          ) {
+            sprint.taskCount = stats.count;
+            sprint.completedTaskCount = stats.completedCount;
+
+            // Optionally save back to database if they changed
+            await this.sprintsRepository.update(sprint.id, {
+              taskCount: sprint.taskCount,
+              completedTaskCount: sprint.completedTaskCount,
+            });
+          }
+        }
       }
 
       // Get team members (all users for now)

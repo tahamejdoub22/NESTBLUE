@@ -53,18 +53,22 @@ export class User extends BaseEntity {
   password: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
+  @Exclude()
   refreshToken: string;
 
   @Column({ type: 'boolean', default: false })
   emailVerified: boolean;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
+  @Exclude()
   emailVerificationToken: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
+  @Exclude()
   passwordResetToken: string;
 
   @Column({ type: 'timestamptz', nullable: true })
+  @Exclude()
   passwordResetExpires: Date;
 
   @Column({ type: 'jsonb', nullable: true })

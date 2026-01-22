@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Sprint, SprintStatus } from './entities/sprint.entity';
-import { Task } from '../tasks/entities/task.entity';
+import { Task, TaskStatus } from '../tasks/entities/task.entity';
 import { CreateSprintDto } from './dto/create-sprint.dto';
 import { UpdateSprintDto } from './dto/update-sprint.dto';
 
@@ -27,19 +27,8 @@ export class SprintsService {
 
   async findAll(projectId?: string): Promise<Sprint[]> {
     const where = projectId ? { projectId } : {};
-    const sprints = await this.sprintsRepository.find({
-      where,
-      relations: ['project'],
-      order: { startDate: 'DESC' },
-    });
-
-    // Recalculate counts for each sprint to ensure they are true and fresh
-    // This ensures all counts across all views (lists, cards, etc.) are correct
-    for (const sprint of sprints) {
-      await this.recalculateTaskCounts(sprint.id);
-    }
-
-    // Fetch again after recalculation to get updated values
+    // Optimized: removed N+1 recalculation loop.
+    // Counts are maintained by TasksService events and periodic updates.
     return this.sprintsRepository.find({
       where,
       relations: ['project'],
@@ -49,6 +38,7 @@ export class SprintsService {
 
   async findOne(id: string): Promise<Sprint> {
     // Recalculate counts to ensure they are true and fresh
+    // Optimized: recalculateTaskCounts is now efficient (O(1) query instead of loading all tasks)
     await this.recalculateTaskCounts(id);
 
     const sprint = await this.sprintsRepository.findOne({
@@ -155,24 +145,34 @@ export class SprintsService {
 
   /**
    * Recalculate task counts for a sprint
+   * Optimized to use database counting instead of loading all tasks into memory
    */
   async recalculateTaskCounts(sprintId: string): Promise<void> {
     try {
-      const tasks = await this.tasksRepository.find({
+      const taskCount = await this.tasksRepository.count({
         where: { sprintId },
       });
 
-      const taskCount = tasks.length;
-      const completedTaskCount = tasks.filter(
-        (task) => task.status === 'complete' || (task.status as string) === 'COMPLETE'
-      ).length;
+      // Use query builder to handle potential casing inconsistencies in status
+      // This corresponds to: task.status === 'complete' || task.status === 'COMPLETE'
+      const completedTaskCount = await this.tasksRepository
+        .createQueryBuilder('task')
+        .where('task.sprintId = :sprintId', { sprintId })
+        .andWhere('(task.status = :status1 OR task.status = :status2)', {
+          status1: 'complete',
+          status2: 'COMPLETE'
+        })
+        .getCount();
 
       await this.sprintsRepository.update(sprintId, {
-        taskCount,
-        completedTaskCount,
+        taskCount: Number(total),
+        completedTaskCount: Number(completed),
       });
     } catch (error) {
-      console.error(`Error recalculating task counts for sprint ${sprintId}:`, error);
+      console.error(
+        `Error recalculating task counts for sprint ${sprintId}:`,
+        error,
+      );
       // Don't throw error to prevent blocking other operations
     }
   }
@@ -186,4 +186,3 @@ export class SprintsService {
     await this.recalculateTaskCounts(sprintId);
   }
 }
-
