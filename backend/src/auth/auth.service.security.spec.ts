@@ -3,11 +3,13 @@ import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { EmailService } from '../email/email.service';
 
 describe('AuthService Security', () => {
   let service: AuthService;
   let usersService: Partial<UsersService>;
   let configService: Partial<ConfigService>;
+  let emailService: Partial<EmailService>;
 
   beforeEach(async () => {
     usersService = {
@@ -20,6 +22,10 @@ describe('AuthService Security', () => {
 
     configService = {
       get: jest.fn().mockReturnValue('production'), // Simulate production environment
+    };
+
+    emailService = {
+      sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -36,6 +42,10 @@ describe('AuthService Security', () => {
         {
           provide: ConfigService,
           useValue: configService,
+        },
+        {
+          provide: EmailService,
+          useValue: emailService,
         },
       ],
     }).compile();

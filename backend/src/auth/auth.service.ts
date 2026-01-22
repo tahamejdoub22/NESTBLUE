@@ -13,6 +13,7 @@ import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import * as crypto from 'crypto';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +23,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private emailService: EmailService,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -111,12 +113,15 @@ export class AuthService {
       resetExpires,
     );
 
-    // TODO: Send email with reset token
-    // For now, only log the token in development environment
-    if (this.configService.get('NODE_ENV') === 'development') {
-      this.logger.debug(
-        `[DEV ONLY] Password reset token for ${user.email}: ${resetToken}`,
+    try {
+      await this.emailService.sendPasswordResetEmail(user.email, resetToken);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send password reset email to ${user.email}`,
+        error.stack,
       );
+      // We don't throw the error to avoid revealing if the email exists or not
+      // and to prevent enumeration attacks.
     }
 
     return {
