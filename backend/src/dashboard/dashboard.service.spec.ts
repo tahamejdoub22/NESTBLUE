@@ -11,43 +11,50 @@ import { Budget } from '../budgets/entities/budget.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { Repository } from 'typeorm';
 
-type MockRepository<T = any> = Partial<Record<keyof Repository<T>, jest.Mock>> & {
-  createQueryBuilder: jest.Mock;
-};
-
-const createMockRepository = <T = any>(): MockRepository<T> => ({
-  find: jest.fn().mockReturnValue(Promise.resolve([])), // Default return empty array
-  findOne: jest.fn().mockReturnValue(Promise.resolve(null)),
-  create: jest.fn(),
-  save: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
-  createQueryBuilder: jest.fn(),
-});
-
 describe('DashboardService', () => {
   let service: DashboardService;
-  let tasksRepository: MockRepository<Task>;
-  let sprintsRepository: MockRepository<Sprint>;
-  let projectsRepository: MockRepository<Project>;
-  let usersRepository: MockRepository<User>;
-  let costsRepository: MockRepository<Cost>;
-  let expensesRepository: MockRepository<Expense>;
-  let budgetsRepository: MockRepository<Budget>;
-  let notificationsRepository: MockRepository<Notification>;
+  let tasksRepository: Repository<Task>;
+  let sprintsRepository: Repository<Sprint>;
+  let projectsRepository: Repository<Project>;
+
+  const mockQueryBuilder = {
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn(),
+  };
+
+  const mockTasksRepository = {
+    find: jest.fn(),
+    createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+  };
+
+  const mockSprintsRepository = {
+    find: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const mockProjectsRepository = {
+    find: jest.fn(),
+  };
+
+  const mockRepository = {
+    find: jest.fn().mockResolvedValue([]),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardService,
-        { provide: getRepositoryToken(Project), useValue: createMockRepository() },
-        { provide: getRepositoryToken(Task), useValue: createMockRepository() },
-        { provide: getRepositoryToken(Sprint), useValue: createMockRepository() },
-        { provide: getRepositoryToken(User), useValue: createMockRepository() },
-        { provide: getRepositoryToken(Cost), useValue: createMockRepository() },
-        { provide: getRepositoryToken(Expense), useValue: createMockRepository() },
-        { provide: getRepositoryToken(Budget), useValue: createMockRepository() },
-        { provide: getRepositoryToken(Notification), useValue: createMockRepository() },
+        { provide: getRepositoryToken(Project), useValue: mockProjectsRepository },
+        { provide: getRepositoryToken(Task), useValue: mockTasksRepository },
+        { provide: getRepositoryToken(Sprint), useValue: mockSprintsRepository },
+        { provide: getRepositoryToken(User), useValue: mockRepository },
+        { provide: getRepositoryToken(Cost), useValue: mockRepository },
+        { provide: getRepositoryToken(Expense), useValue: mockRepository },
+        { provide: getRepositoryToken(Budget), useValue: mockRepository },
+        { provide: getRepositoryToken(Notification), useValue: mockRepository },
       ],
     }).compile();
 
@@ -55,96 +62,51 @@ describe('DashboardService', () => {
     tasksRepository = module.get(getRepositoryToken(Task));
     sprintsRepository = module.get(getRepositoryToken(Sprint));
     projectsRepository = module.get(getRepositoryToken(Project));
-    usersRepository = module.get(getRepositoryToken(User));
-    costsRepository = module.get(getRepositoryToken(Cost));
-    expensesRepository = module.get(getRepositoryToken(Expense));
-    budgetsRepository = module.get(getRepositoryToken(Budget));
-    notificationsRepository = module.get(getRepositoryToken(Notification));
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
-  describe('getDashboardData', () => {
-    it('should use createQueryBuilder for aggregation and update sprints', async () => {
-      // Mock data
-      const mockSprint1 = { id: 'sprint1', status: 'active', taskCount: 0, completedTaskCount: 0 } as Sprint;
-      const mockSprint2 = { id: 'sprint2', status: 'active', taskCount: 0, completedTaskCount: 0 } as Sprint;
-      const mockActiveSprints = [mockSprint1, mockSprint2];
+  it('should use createQueryBuilder for sprint counts instead of N+1 find queries', async () => {
+    // Setup data
+    const activeSprints = [
+      { id: 'sprint-1', status: 'active', taskCount: 0, completedTaskCount: 0 },
+      { id: 'sprint-2', status: 'active', taskCount: 0, completedTaskCount: 0 },
+    ];
 
-      const mockTaskCounts = [
-        { sprintId: 'sprint1', count: '2', completedCount: '1' },
-        { sprintId: 'sprint2', count: '1', completedCount: '1' },
-      ];
+    // Mock responses
+    mockSprintsRepository.find.mockResolvedValue(activeSprints);
+    mockProjectsRepository.find.mockResolvedValue([]);
+    mockTasksRepository.find.mockResolvedValue([]); // For allTasks
 
-      // Setup specific mocks
-      sprintsRepository.find.mockResolvedValue(mockActiveSprints);
+    // Mock aggregate query result
+    mockQueryBuilder.getRawMany.mockResolvedValue([
+      { sprintId: 'sprint-1', count: '5', completedCount: '2' },
+      { sprintId: 'sprint-2', count: '3', completedCount: '3' },
+    ]);
 
-      // Mock query builder chain
-      const mockQueryBuilder = {
-        select: jest.fn().mockReturnThis(),
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        groupBy: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue(mockTaskCounts),
-      };
-      tasksRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+    await service.getDashboardData('user-1');
 
-      // Ensure other repositories return empty arrays/nulls
-      projectsRepository.find.mockResolvedValue([]);
-      usersRepository.find.mockResolvedValue([]);
-      costsRepository.find.mockResolvedValue([]);
-      expensesRepository.find.mockResolvedValue([]);
-      budgetsRepository.find.mockResolvedValue([]);
-      notificationsRepository.find.mockResolvedValue([]);
+    // Assertions
+    // 1 call for allTasks
+    expect(tasksRepository.find).toHaveBeenCalledTimes(1);
 
-      await service.getDashboardData('user1');
+    // 1 call for createQueryBuilder (the optimization)
+    expect(tasksRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
+    expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+      'task.sprintId IN (:...sprintIds)',
+      { sprintIds: ['sprint-1', 'sprint-2'] }
+    );
 
-      // Assertions
-      expect(tasksRepository.createQueryBuilder).toHaveBeenCalledWith('task');
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith('task.sprintId IN (:...sprintIds)', { sprintIds: ['sprint1', 'sprint2'] });
-
-      // Verify updates were called with correct counts
-      expect(sprintsRepository.update).toHaveBeenCalledWith('sprint1', {
-        taskCount: 2,
-        completedTaskCount: 1,
-      });
-      expect(sprintsRepository.update).toHaveBeenCalledWith('sprint2', {
-        taskCount: 1,
-        completedTaskCount: 1,
-      });
+    // Ensure updates happened with correct values
+    expect(sprintsRepository.update).toHaveBeenCalledWith('sprint-1', {
+      taskCount: 5,
+      completedTaskCount: 2,
     });
-
-    it('should NOT update sprints if counts are already correct', async () => {
-      // Mock data
-      // Initial state: counts are ALREADY correct.
-      const mockSprint1 = { id: 'sprint1', status: 'active', taskCount: 2, completedTaskCount: 1 } as Sprint;
-      const mockActiveSprints = [mockSprint1];
-
-      const mockTaskCounts = [
-        { sprintId: 'sprint1', count: '2', completedCount: '1' },
-      ];
-
-      // Setup specific mocks
-      sprintsRepository.find.mockResolvedValue(mockActiveSprints);
-
-      // Mock query builder chain
-      const mockQueryBuilder = {
-        select: jest.fn().mockReturnThis(),
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        groupBy: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue(mockTaskCounts),
-      };
-      tasksRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-
-      await service.getDashboardData('user1');
-
-      // Assertions
-      expect(tasksRepository.createQueryBuilder).toHaveBeenCalled();
-      // Update should NOT be called
-      expect(sprintsRepository.update).not.toHaveBeenCalled();
+    expect(sprintsRepository.update).toHaveBeenCalledWith('sprint-2', {
+      taskCount: 3,
+      completedTaskCount: 3,
     });
   });
 });

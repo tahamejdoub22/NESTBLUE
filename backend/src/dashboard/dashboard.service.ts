@@ -50,37 +50,46 @@ export class DashboardService {
         relations: ['project'],
       }).catch(() => []);
 
-      // Recalculate counts for active sprints to ensure dashboard data is true
-      // Optimization: Use a single aggregation query instead of N queries
+      // Optimization: Get task counts for all active sprints in one query using database aggregation
       const sprintIds = activeSprints.map((s) => s.id);
+
       if (sprintIds.length > 0) {
-        const taskCounts = await this.tasksRepository
+        const counts = await this.tasksRepository
           .createQueryBuilder('task')
           .select('task.sprintId', 'sprintId')
           .addSelect('COUNT(task.uid)', 'count')
-          .addSelect("COUNT(CASE WHEN task.status = 'complete' THEN 1 END)", 'completedCount')
+          .addSelect(
+            "SUM(CASE WHEN task.status = 'complete' THEN 1 ELSE 0 END)",
+            'completedCount',
+          )
           .where('task.sprintId IN (:...sprintIds)', { sprintIds })
           .groupBy('task.sprintId')
           .getRawMany();
 
-        const countsMap = new Map<string, { count: number; completed: number }>();
-        taskCounts.forEach((row) => {
-          countsMap.set(row.sprintId, {
-            count: parseInt(row.count, 10),
-            completed: parseInt(row.completedCount, 10),
-          });
-        });
+        const countMap = new Map(
+          counts.map((c) => [
+            c.sprintId,
+            {
+              count: parseInt(c.count, 10) || 0,
+              completedCount: parseInt(c.completedCount, 10) || 0,
+            },
+          ]),
+        );
 
         for (const sprint of activeSprints) {
-          const counts = countsMap.get(sprint.id) || { count: 0, completed: 0 };
-          const taskCount = counts.count;
-          const completedTaskCount = counts.completed;
+          const stats = countMap.get(sprint.id) || {
+            count: 0,
+            completedCount: 0,
+          };
 
-          // Only update if values have changed
-          if (sprint.taskCount !== taskCount || sprint.completedTaskCount !== completedTaskCount) {
-            sprint.taskCount = taskCount;
-            sprint.completedTaskCount = completedTaskCount;
+          if (
+            sprint.taskCount !== stats.count ||
+            sprint.completedTaskCount !== stats.completedCount
+          ) {
+            sprint.taskCount = stats.count;
+            sprint.completedTaskCount = stats.completedCount;
 
+            // Optionally save back to database if they changed
             await this.sprintsRepository.update(sprint.id, {
               taskCount: sprint.taskCount,
               completedTaskCount: sprint.completedTaskCount,
