@@ -36,7 +36,7 @@ export class DashboardService {
       // Get all projects (for now, get all projects regardless of owner)
       // In production, filter by userId when ownerId field exists
       const projects = await this.projectsRepository.find({
-        relations: ['tasks'],
+        relations: ['tasks', 'members'],
       }).catch(() => []);
 
       // Get all tasks
@@ -164,7 +164,7 @@ export class DashboardService {
         progress: project.progress || 0,
         taskCount: project.tasks?.length || 0,
         completedTaskCount: project.tasks?.filter((t) => t?.status === 'complete').length || 0,
-        teamMemberIds: [], // TODO: Add team member relationships
+        teamMemberIds: project.members?.map((m) => m.userId) || [],
         color: project.color || '#6366f1',
         icon: project.icon || 'folder',
         budget: this.calculateProjectBudget(project.uid, projectBudgetMap.get(project.uid)),
@@ -587,7 +587,7 @@ export class DashboardService {
         where: { userId },
         order: { createdAt: 'DESC' },
         take: 20,
-        relations: ['user'],
+        relations: ['user', 'project', 'task'],
       });
 
       return notifications.map((notif) => ({
@@ -598,9 +598,9 @@ export class DashboardService {
         type: this.mapNotificationTypeToActivityType(notif.type),
         description: notif.message || '',
         projectId: notif.projectId || null,
-        projectName: undefined, // TODO: Load project name
+        projectName: notif.project?.name,
         taskId: notif.taskId || null,
-        taskTitle: undefined, // TODO: Load task title
+        taskTitle: notif.task?.title,
         createdAt: notif.createdAt,
         updatedAt: notif.updatedAt,
       }));

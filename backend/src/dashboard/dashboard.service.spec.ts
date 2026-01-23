@@ -46,6 +46,10 @@ describe('DashboardService', () => {
     find: jest.fn().mockResolvedValue([]),
   };
 
+  const mockNotificationsRepository = {
+    find: jest.fn().mockResolvedValue([]),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -57,7 +61,7 @@ describe('DashboardService', () => {
         { provide: getRepositoryToken(Cost), useValue: mockRepository },
         { provide: getRepositoryToken(Expense), useValue: mockRepository },
         { provide: getRepositoryToken(Budget), useValue: mockRepository },
-        { provide: getRepositoryToken(Notification), useValue: mockRepository },
+        { provide: getRepositoryToken(Notification), useValue: mockNotificationsRepository },
       ],
     }).compile();
 
