@@ -221,7 +221,6 @@ describe('DashboardService', () => {
 
     findMock
       .mockResolvedValueOnce([]) // users
-      .mockResolvedValueOnce([]) // notifications
       .mockResolvedValueOnce(budgets) // budgets
       .mockResolvedValueOnce(costs) // costs
       .mockResolvedValueOnce(expenses); // expenses

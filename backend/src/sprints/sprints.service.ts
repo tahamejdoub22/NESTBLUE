@@ -165,8 +165,8 @@ export class SprintsService {
         .getCount();
 
       await this.sprintsRepository.update(sprintId, {
-        taskCount: Number(total),
-        completedTaskCount: Number(completed),
+        taskCount: Number(taskCount),
+        completedTaskCount: Number(completedTaskCount),
       });
     } catch (error) {
       console.error(

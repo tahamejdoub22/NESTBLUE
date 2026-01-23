@@ -15,7 +15,6 @@ describe('UsersController Security', () => {
       create: jest.fn(),
       findAll: jest.fn(),
       findOne: jest.fn(),
-      sanitizeUser: jest.fn((user) => user),
     };
 
     const module: TestingModule = await Test.createTestingModule({
