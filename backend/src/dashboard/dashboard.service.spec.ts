@@ -16,6 +16,7 @@ describe('DashboardService', () => {
   let tasksRepository: Repository<Task>;
   let sprintsRepository: Repository<Sprint>;
   let projectsRepository: Repository<Project>;
+  let notificationsRepository: Repository<Notification>;
 
   const mockQueryBuilder = {
     select: jest.fn().mockReturnThis(),
@@ -43,6 +44,10 @@ describe('DashboardService', () => {
     find: jest.fn().mockResolvedValue([]),
   };
 
+  const mockNotificationsRepository = {
+    find: jest.fn().mockResolvedValue([]),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -54,7 +59,7 @@ describe('DashboardService', () => {
         { provide: getRepositoryToken(Cost), useValue: mockRepository },
         { provide: getRepositoryToken(Expense), useValue: mockRepository },
         { provide: getRepositoryToken(Budget), useValue: mockRepository },
-        { provide: getRepositoryToken(Notification), useValue: mockRepository },
+        { provide: getRepositoryToken(Notification), useValue: mockNotificationsRepository },
       ],
     }).compile();
 
@@ -62,6 +67,7 @@ describe('DashboardService', () => {
     tasksRepository = module.get(getRepositoryToken(Task));
     sprintsRepository = module.get(getRepositoryToken(Sprint));
     projectsRepository = module.get(getRepositoryToken(Project));
+    notificationsRepository = module.get(getRepositoryToken(Notification));
   });
 
   afterEach(() => {
@@ -108,5 +114,39 @@ describe('DashboardService', () => {
       taskCount: 3,
       completedTaskCount: 3,
     });
+  });
+
+  it('should include project name and task title in user activity', async () => {
+    // Mock other calls to return empty/default
+    mockProjectsRepository.find.mockResolvedValue([]);
+    mockTasksRepository.find.mockResolvedValue([]);
+    mockSprintsRepository.find.mockResolvedValue([]);
+
+    // Mock notifications with project and task
+    const mockNotification = {
+      id: 'notif-1',
+      userId: 'user-1',
+      type: 'task',
+      message: 'Task updated',
+      projectId: 'proj-1',
+      project: { name: 'Project A' },
+      taskId: 'task-1',
+      task: { title: 'Task B' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      user: { name: 'User 1', avatar: 'avatar.jpg' },
+    };
+
+    (notificationsRepository.find as jest.Mock).mockResolvedValue([mockNotification]);
+
+    const result = await service.getDashboardData('user-1');
+
+    expect(notificationsRepository.find).toHaveBeenCalledWith(expect.objectContaining({
+      relations: expect.arrayContaining(['project', 'task']),
+    }));
+
+    const activity = result.userActivity[0];
+    expect(activity.projectName).toBe('Project A');
+    expect(activity.taskTitle).toBe('Task B');
   });
 });
