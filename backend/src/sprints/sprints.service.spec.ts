@@ -69,6 +69,24 @@ describe('SprintsService', () => {
     });
   });
 
+  describe('findOne', () => {
+    it('should find one sprint WITHOUT recalculating counts (optimized behavior)', async () => {
+      const sprintId = 'test-sprint';
+      const mockSprint = { id: sprintId, startDate: new Date() };
+      mockSprintsRepository.findOne.mockResolvedValue(mockSprint);
+
+      await service.findOne(sprintId);
+
+      expect(mockSprintsRepository.findOne).toHaveBeenCalledWith({
+        where: { id: sprintId },
+        relations: ['project'],
+      });
+      // Should NOT call recalculateTaskCounts (which calls tasksRepository.count and update)
+      expect(mockTasksRepository.count).not.toHaveBeenCalled();
+      expect(mockSprintsRepository.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('recalculateTaskCounts', () => {
     it('should use count and createQueryBuilder instead of find', async () => {
       const sprintId = 'test-sprint';

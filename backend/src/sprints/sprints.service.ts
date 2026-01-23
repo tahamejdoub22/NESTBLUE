@@ -37,10 +37,6 @@ export class SprintsService {
   }
 
   async findOne(id: string): Promise<Sprint> {
-    // Recalculate counts to ensure they are true and fresh
-    // Optimized: recalculateTaskCounts is now efficient (O(1) query instead of loading all tasks)
-    await this.recalculateTaskCounts(id);
-
     const sprint = await this.sprintsRepository.findOne({
       where: { id },
       relations: ['project'],
@@ -165,8 +161,8 @@ export class SprintsService {
         .getCount();
 
       await this.sprintsRepository.update(sprintId, {
-        taskCount: Number(total),
-        completedTaskCount: Number(completed),
+        taskCount: Number(taskCount),
+        completedTaskCount: Number(completedTaskCount),
       });
     } catch (error) {
       console.error(
