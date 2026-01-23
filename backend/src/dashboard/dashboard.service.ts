@@ -36,7 +36,7 @@ export class DashboardService {
       // Get all projects (for now, get all projects regardless of owner)
       // In production, filter by userId when ownerId field exists
       const projects = await this.projectsRepository.find({
-        relations: ['tasks'],
+        relations: ['tasks', 'members'],
       }).catch(() => []);
 
       // Get all tasks
@@ -159,7 +159,7 @@ export class DashboardService {
         progress: project.progress || 0,
         taskCount: project.tasks?.length || 0,
         completedTaskCount: project.tasks?.filter((t) => t?.status === 'complete').length || 0,
-        teamMemberIds: [], // TODO: Add team member relationships
+        teamMemberIds: project.members?.map((m) => m.userId) || [],
         color: project.color || '#6366f1',
         icon: project.icon || 'folder',
         budget: this.calculateProjectBudget(project.uid),
