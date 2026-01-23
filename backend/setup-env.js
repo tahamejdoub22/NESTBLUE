@@ -38,6 +38,7 @@ PORT=4000
 NODE_ENV=development
 APP_NAME=Cost Management API
 APP_VERSION=1.0.0
+FRONTEND_URL=http://localhost:3000
 
 # ============================================
 # CORS CONFIGURATION
