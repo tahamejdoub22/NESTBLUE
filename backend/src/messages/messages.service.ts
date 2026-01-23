@@ -87,11 +87,16 @@ export class MessagesService {
 
       // Auto-generate name for direct conversations if not set
       let conversationName = conv.name;
-      if (!conversationName && conv.type === 'direct' && conv.participantIds.length === 2) {
+      let conversationAvatar = undefined;
+
+      if (conv.type === 'direct' && conv.participantIds.length === 2) {
         const otherParticipantId = conv.participantIds.find(id => id !== userId);
         if (otherParticipantId) {
           const otherUser = userMap.get(otherParticipantId);
-          conversationName = otherUser?.name || 'Direct Message';
+          if (!conversationName) {
+            conversationName = otherUser?.name || 'Direct Message';
+          }
+          conversationAvatar = otherUser?.avatar;
         }
       }
 
@@ -120,7 +125,7 @@ export class MessagesService {
           updatedAt: lastMessage.updatedAt,
         } : undefined,
         unreadCount: conv.unreadCount,
-        avatar: undefined, // TODO: Add avatar logic
+        avatar: conversationAvatar,
         isPinned: conv.isPinned,
         isArchived: conv.isArchived,
         createdAt: conv.createdAt,
