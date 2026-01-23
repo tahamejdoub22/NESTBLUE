@@ -51,6 +51,8 @@ describe('DashboardService', () => {
   };
 
   beforeEach(async () => {
+    mockNotificationsRepository.find.mockResolvedValue([]);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardService,
@@ -76,6 +78,50 @@ describe('DashboardService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('should load task title and project name in user activity', async () => {
+    // Setup data
+    const notifications = [
+      {
+        id: 'notif-1',
+        userId: 'user-1',
+        type: 'task',
+        message: 'Task updated',
+        projectId: 'project-1',
+        taskId: 'task-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        user: { name: 'User 1', avatar: 'avatar.png' },
+      },
+    ];
+
+    const projects = [{ uid: 'project-1', name: 'Project Alpha' }];
+    const tasks = [{ uid: 'task-1', title: 'Task One' }];
+
+    // Mock responses
+    mockSprintsRepository.find.mockResolvedValue([]);
+    mockProjectsRepository.find.mockImplementation((args) => {
+      if (args && args.where && args.where.uid) {
+        return Promise.resolve(projects);
+      }
+      return Promise.resolve([]);
+    });
+    mockTasksRepository.find.mockImplementation((args) => {
+      if (args && args.where && args.where.uid) {
+        return Promise.resolve(tasks);
+      }
+      return Promise.resolve([]);
+    });
+    mockNotificationsRepository.find.mockResolvedValue(notifications);
+
+    const result = await service.getDashboardData('user-1');
+
+    expect(result.userActivity).toHaveLength(1);
+    expect(result.userActivity[0].projectId).toBe('project-1');
+    expect(result.userActivity[0].projectName).toBe('Project Alpha');
+    expect(result.userActivity[0].taskId).toBe('task-1');
+    expect(result.userActivity[0].taskTitle).toBe('Task One');
   });
 
   it('should use createQueryBuilder for sprint counts instead of N+1 find queries', async () => {
