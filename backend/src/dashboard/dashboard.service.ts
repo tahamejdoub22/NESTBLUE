@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, MoreThanOrEqual } from 'typeorm';
 import { Project } from '../projects/entities/project.entity';
 import { Task, TaskStatus, TaskPriority } from '../tasks/entities/task.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
@@ -721,71 +721,67 @@ export class DashboardService {
 
   private async calculateBudgetCostMetrics(projects: Project[]) {
     try {
-      // Get all budgets
-      const budgets = await this.budgetsRepository.find({
-        relations: ['project'],
-      }).catch(() => []);
+      // Optimization: Use aggregation queries instead of fetching all records
+      const [budgetSums, costSums, expenseSums] = await Promise.all([
+        this.budgetsRepository
+          .createQueryBuilder('budget')
+          .select('budget.projectId', 'projectId')
+          .addSelect('SUM(budget.amount)', 'total')
+          .groupBy('budget.projectId')
+          .getRawMany(),
+        this.costsRepository
+          .createQueryBuilder('cost')
+          .select('cost.projectId', 'projectId')
+          .addSelect('SUM(cost.amount)', 'total')
+          .groupBy('cost.projectId')
+          .getRawMany(),
+        this.expensesRepository
+          .createQueryBuilder('expense')
+          .select('expense.projectId', 'projectId')
+          .addSelect('SUM(expense.amount)', 'total')
+          .groupBy('expense.projectId')
+          .getRawMany(),
+      ]);
 
-      // Get all costs
-      const costs = await this.costsRepository.find({
-        relations: ['project'],
-      }).catch(() => []);
+      const parseSum = (item: any) =>
+        item.total ? parseFloat(item.total) : 0;
 
-      // Get all expenses
-      const expenses = await this.expensesRepository.find({
-        relations: ['project'],
-      }).catch(() => []);
-
-      // Calculate total budget
+      // Create lookup maps
+      const budgetMap = new Map<string, number>();
       let totalBudget = 0;
-      for (const budget of budgets) {
-        const amount = typeof budget.amount === 'string' ? parseFloat(budget.amount) : Number(budget.amount || 0);
-        totalBudget += isNaN(amount) ? 0 : amount;
-      }
+      budgetSums.forEach((b) => {
+        const val = parseSum(b);
+        totalBudget += val;
+        if (b.projectId) budgetMap.set(b.projectId, val);
+      });
 
-      // Calculate total spent (costs + expenses)
-      let totalSpent = 0;
-      for (const cost of costs) {
-        const amount = typeof cost.amount === 'string' ? parseFloat(cost.amount) : Number(cost.amount || 0);
-        totalSpent += isNaN(amount) ? 0 : amount;
-      }
-      for (const expense of expenses) {
-        const amount = typeof expense.amount === 'string' ? parseFloat(expense.amount) : Number(expense.amount || 0);
-        totalSpent += isNaN(amount) ? 0 : amount;
-      }
+      const costMap = new Map<string, number>();
+      let totalCosts = 0;
+      costSums.forEach((c) => {
+        const val = parseSum(c);
+        totalCosts += val;
+        if (c.projectId) costMap.set(c.projectId, val);
+      });
 
-      // Calculate remaining budget
+      const expenseMap = new Map<string, number>();
+      let totalExpenses = 0;
+      expenseSums.forEach((e) => {
+        const val = parseSum(e);
+        totalExpenses += val;
+        if (e.projectId) expenseMap.set(e.projectId, val);
+      });
+
+      const totalSpent = totalCosts + totalExpenses;
       const remainingBudget = totalBudget - totalSpent;
+      const budgetUtilization =
+        totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-      // Calculate budget utilization percentage
-      const budgetUtilization = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
-
-      // Group by project
+      // Group by project using maps
       const projectBudgets = projects.map((project) => {
-        let projectBudget = 0;
-        for (const b of budgets) {
-          if (b.projectId === project.uid) {
-            const amount = typeof b.amount === 'string' ? parseFloat(b.amount) : Number(b.amount || 0);
-            projectBudget += isNaN(amount) ? 0 : amount;
-          }
-        }
-        
-        let projectCosts = 0;
-        for (const c of costs) {
-          if (c.projectId === project.uid) {
-            const amount = typeof c.amount === 'string' ? parseFloat(c.amount) : Number(c.amount || 0);
-            projectCosts += isNaN(amount) ? 0 : amount;
-          }
-        }
-        
-        let projectExpenses = 0;
-        for (const e of expenses) {
-          if (e.projectId === project.uid) {
-            const amount = typeof e.amount === 'string' ? parseFloat(e.amount) : Number(e.amount || 0);
-            projectExpenses += isNaN(amount) ? 0 : amount;
-          }
-        }
-        
+        const projectBudget = budgetMap.get(project.uid) || 0;
+        const projectCosts = costMap.get(project.uid) || 0;
+        const projectExpenses = expenseMap.get(project.uid) || 0;
+
         const projectSpent = projectCosts + projectExpenses;
         const projectRemaining = projectBudget - projectSpent;
 
@@ -795,19 +791,35 @@ export class DashboardService {
           budget: projectBudget,
           spent: projectSpent,
           remaining: projectRemaining,
-          utilization: projectBudget > 0 ? (projectSpent / projectBudget) * 100 : 0,
+          utilization:
+            projectBudget > 0 ? (projectSpent / projectBudget) * 100 : 0,
         };
       });
 
+      // Fetch only recent data for cost trend (last 6 months)
+      const now = new Date();
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+      const [recentCosts, recentExpenses] = await Promise.all([
+        this.costsRepository.find({
+          where: { date: MoreThanOrEqual(sixMonthsAgo) },
+        }),
+        this.expensesRepository.find({
+          where: { startDate: MoreThanOrEqual(sixMonthsAgo) },
+        }),
+      ]);
+
       // Calculate cost trend (monthly costs for last 6 months)
-      const costTrend = this.calculateCostTrend(costs, expenses);
+      const costTrend = this.calculateCostTrend(recentCosts, recentExpenses);
 
       return {
         totalBudget,
         totalSpent,
         remainingBudget,
         budgetUtilization: Math.round(budgetUtilization * 10) / 10,
-        projectBudgets: projectBudgets.filter((pb) => pb.budget > 0 || pb.spent > 0),
+        projectBudgets: projectBudgets.filter(
+          (pb) => pb.budget > 0 || pb.spent > 0,
+        ),
         costTrend,
       };
     } catch (error) {
