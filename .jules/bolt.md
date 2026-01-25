@@ -5,3 +5,7 @@
 ## 2024-05-24 - SprintsService N+1 Recalculation
 **Learning:** The `SprintsService.findOne` method was recalculating task counts on every read, causing a hidden N+1 query issue (2 extra queries per read) and also contained a reference error bug.
 **Action:** Relied on event-driven updates from `TasksService` to maintain counts in `Sprint` entity, and removed the recalculation from the read path. Always verify that "freshness" checks aren't secretly performing expensive writes during reads.
+
+## 2026-01-25 - ProjectsService Bulk Invite N+1
+**Learning:** The `ProjectsService.inviteMembers` method was performing N+1 queries by repeating project permission checks and user existence checks for every invited user in a loop.
+**Action:** Extracted the permission check to be run once before the loop. While user existence checks are still iterative (due to missing `findByIds` in UsersService), the core permission overhead was removed. Always audit bulk operations for repetitive checks that are invariant across the loop.
