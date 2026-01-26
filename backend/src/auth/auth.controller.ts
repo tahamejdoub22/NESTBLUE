@@ -38,6 +38,7 @@ export class AuthController {
   }
 
   @Post('register')
+  @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'User registration' })
   @ApiResponse({ status: 201, description: 'Registration successful' })
@@ -56,6 +57,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset' })
   @ApiResponse({ status: 200, description: 'Password reset email sent' })
