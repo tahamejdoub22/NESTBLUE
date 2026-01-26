@@ -5,3 +5,7 @@
 ## 2024-05-24 - SprintsService N+1 Recalculation
 **Learning:** The `SprintsService.findOne` method was recalculating task counts on every read, causing a hidden N+1 query issue (2 extra queries per read) and also contained a reference error bug.
 **Action:** Relied on event-driven updates from `TasksService` to maintain counts in `Sprint` entity, and removed the recalculation from the read path. Always verify that "freshness" checks aren't secretly performing expensive writes during reads.
+
+## 2026-01-26 - NotificationsService N+1 Optimization
+**Learning:**  was performing N inserts and N unread count queries (via ) for N users, leading to 2N database calls.
+**Action:** Replaced with  for batched inserts and  with  to fetch all unread counts in a single query. Always look for  patterns involving database calls.
