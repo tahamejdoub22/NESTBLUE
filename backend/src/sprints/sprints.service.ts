@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
-import { Sprint, SprintStatus } from './entities/sprint.entity';
-import { Task, TaskStatus } from '../tasks/entities/task.entity';
-import { CreateSprintDto } from './dto/create-sprint.dto';
-import { UpdateSprintDto } from './dto/update-sprint.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, In } from "typeorm";
+import { Sprint, SprintStatus } from "./entities/sprint.entity";
+import { Task, TaskStatus } from "../tasks/entities/task.entity";
+import { CreateSprintDto } from "./dto/create-sprint.dto";
+import { UpdateSprintDto } from "./dto/update-sprint.dto";
 
 @Injectable()
 export class SprintsService {
@@ -18,10 +18,10 @@ export class SprintsService {
   async create(createSprintDto: CreateSprintDto): Promise<Sprint> {
     const sprint = this.sprintsRepository.create(createSprintDto);
     const savedSprint = await this.sprintsRepository.save(sprint);
-    
+
     // Auto-update status based on dates
     await this.updateSprintStatus(savedSprint.id);
-    
+
     return savedSprint;
   }
 
@@ -31,15 +31,15 @@ export class SprintsService {
     // Counts are maintained by TasksService events and periodic updates.
     return this.sprintsRepository.find({
       where,
-      relations: ['project'],
-      order: { startDate: 'DESC' },
+      relations: ["project"],
+      order: { startDate: "DESC" },
     });
   }
 
   async findOne(id: string): Promise<Sprint> {
     const sprint = await this.sprintsRepository.findOne({
       where: { id },
-      relations: ['project'],
+      relations: ["project"],
     });
 
     if (!sprint) {
@@ -53,15 +53,15 @@ export class SprintsService {
     const sprint = await this.findOne(id);
     Object.assign(sprint, updateSprintDto);
     const updatedSprint = await this.sprintsRepository.save(sprint);
-    
+
     // Auto-update status based on dates
     await this.updateSprintStatus(id);
-    
+
     // Recalculate task counts if dates changed
     if (updateSprintDto.startDate || updateSprintDto.endDate) {
       await this.recalculateTaskCounts(id);
     }
-    
+
     return updatedSprint;
   }
 
@@ -78,12 +78,13 @@ export class SprintsService {
       }
 
       // Get tasks with subtasks, comments, and attachments counts
-      const tasks = await this.tasksRepository.createQueryBuilder('task')
-        .leftJoinAndSelect('task.subtasks', 'subtask')
-        .leftJoinAndSelect('task.comments', 'comment')
-        .leftJoinAndSelect('task.attachments', 'attachment')
-        .where('task.sprintId = :sprintId', { sprintId })
-        .orderBy('task.createdAt', 'DESC')
+      const tasks = await this.tasksRepository
+        .createQueryBuilder("task")
+        .leftJoinAndSelect("task.subtasks", "subtask")
+        .leftJoinAndSelect("task.comments", "comment")
+        .leftJoinAndSelect("task.attachments", "attachment")
+        .where("task.sprintId = :sprintId", { sprintId })
+        .orderBy("task.createdAt", "DESC")
         .getMany();
 
       // Transform to match frontend format with real counts/data
@@ -108,7 +109,10 @@ export class SprintsService {
         updatedAt: task.updatedAt,
       }));
     } catch (error) {
-      console.error(`Error in SprintsService.getSprintTasks for sprintId ${sprintId}:`, error);
+      console.error(
+        `Error in SprintsService.getSprintTasks for sprintId ${sprintId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -152,11 +156,11 @@ export class SprintsService {
       // Use query builder to handle potential casing inconsistencies in status
       // This corresponds to: task.status === 'complete' || task.status === 'COMPLETE'
       const completedTaskCount = await this.tasksRepository
-        .createQueryBuilder('task')
-        .where('task.sprintId = :sprintId', { sprintId })
-        .andWhere('(task.status = :status1 OR task.status = :status2)', {
-          status1: 'complete',
-          status2: 'COMPLETE'
+        .createQueryBuilder("task")
+        .where("task.sprintId = :sprintId", { sprintId })
+        .andWhere("(task.status = :status1 OR task.status = :status2)", {
+          status1: "complete",
+          status2: "COMPLETE",
         })
         .getCount();
 

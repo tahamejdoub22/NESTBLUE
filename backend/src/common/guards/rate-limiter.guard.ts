@@ -4,7 +4,7 @@ import {
   ExecutionContext,
   HttpException,
   HttpStatus,
-} from '@nestjs/common';
+} from "@nestjs/common";
 
 @Injectable()
 export class RateLimiterGuard implements CanActivate {
@@ -14,14 +14,17 @@ export class RateLimiterGuard implements CanActivate {
 
   constructor() {
     // Self-cleaning mechanism: run every 5 minutes
-    const cleanupInterval = setInterval(() => {
-      const now = Date.now();
-      for (const [ip, data] of this.requests.entries()) {
-        if (now > data.expiresAt) {
-          this.requests.delete(ip);
+    const cleanupInterval = setInterval(
+      () => {
+        const now = Date.now();
+        for (const [ip, data] of this.requests.entries()) {
+          if (now > data.expiresAt) {
+            this.requests.delete(ip);
+          }
         }
-      }
-    }, 5 * 60 * 1000);
+      },
+      5 * 60 * 1000,
+    );
 
     // Prevent this interval from keeping the process alive
     if (cleanupInterval.unref) {
@@ -33,7 +36,7 @@ export class RateLimiterGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     // Use request.ip or connection.remoteAddress
     // explicit check to avoid manual X-Forwarded-For parsing which can be spoofed without proper proxy config
-    const ip = request.ip || request.socket?.remoteAddress || 'unknown';
+    const ip = request.ip || request.socket?.remoteAddress || "unknown";
 
     const now = Date.now();
     const record = this.requests.get(ip);
@@ -48,7 +51,7 @@ export class RateLimiterGuard implements CanActivate {
 
     if (record.count >= this.MAX_REQUESTS) {
       throw new HttpException(
-        'Too many login attempts. Please try again later.',
+        "Too many login attempts. Please try again later.",
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

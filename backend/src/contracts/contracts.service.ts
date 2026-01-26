@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Contract } from './entities/contract.entity';
-import { CreateContractDto } from './dto/create-contract.dto';
-import { UpdateContractDto } from './dto/update-contract.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Contract } from "./entities/contract.entity";
+import { CreateContractDto } from "./dto/create-contract.dto";
+import { UpdateContractDto } from "./dto/update-contract.dto";
 
 @Injectable()
 export class ContractsService {
@@ -21,15 +21,15 @@ export class ContractsService {
     const where = projectId ? { projectId } : {};
     return this.contractsRepository.find({
       where,
-      relations: ['project'],
-      order: { startDate: 'DESC' },
+      relations: ["project"],
+      order: { startDate: "DESC" },
     });
   }
 
   async findOne(id: string): Promise<Contract> {
     const contract = await this.contractsRepository.findOne({
       where: { id },
-      relations: ['project'],
+      relations: ["project"],
     });
 
     if (!contract) {
@@ -39,7 +39,10 @@ export class ContractsService {
     return contract;
   }
 
-  async update(id: string, updateContractDto: UpdateContractDto): Promise<Contract> {
+  async update(
+    id: string,
+    updateContractDto: UpdateContractDto,
+  ): Promise<Contract> {
     const contract = await this.findOne(id);
     Object.assign(contract, updateContractDto);
     return this.contractsRepository.save(contract);
@@ -50,5 +53,3 @@ export class ContractsService {
     await this.contractsRepository.remove(contract);
   }
 }
-
-

@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Cost } from './entities/cost.entity';
-import { CreateCostDto } from './dto/create-cost.dto';
-import { UpdateCostDto } from './dto/update-cost.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Cost } from "./entities/cost.entity";
+import { CreateCostDto } from "./dto/create-cost.dto";
+import { UpdateCostDto } from "./dto/update-cost.dto";
 
 @Injectable()
 export class CostsService {
@@ -23,10 +23,13 @@ export class CostsService {
       return await this.costsRepository.find({
         where,
         relations: [], // Simplified - don't load relations to avoid circular dependencies
-        order: { date: 'DESC' },
+        order: { date: "DESC" },
       });
     } catch (error) {
-      console.error(`Error in CostsService.findAll for projectId ${projectId}:`, error);
+      console.error(
+        `Error in CostsService.findAll for projectId ${projectId}:`,
+        error,
+      );
       throw error;
     }
   }
@@ -63,5 +66,3 @@ export class CostsService {
     await this.costsRepository.remove(cost);
   }
 }
-
-

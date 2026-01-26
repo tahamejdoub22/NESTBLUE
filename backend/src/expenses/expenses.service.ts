@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Expense } from './entities/expense.entity';
-import { CreateExpenseDto } from './dto/create-expense.dto';
-import { UpdateExpenseDto } from './dto/update-expense.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Expense } from "./entities/expense.entity";
+import { CreateExpenseDto } from "./dto/create-expense.dto";
+import { UpdateExpenseDto } from "./dto/update-expense.dto";
 
 @Injectable()
 export class ExpensesService {
@@ -21,15 +21,15 @@ export class ExpensesService {
     const where = projectId ? { projectId } : {};
     return this.expensesRepository.find({
       where,
-      relations: ['project'],
-      order: { startDate: 'DESC' },
+      relations: ["project"],
+      order: { startDate: "DESC" },
     });
   }
 
   async findOne(id: string): Promise<Expense> {
     const expense = await this.expensesRepository.findOne({
       where: { id },
-      relations: ['project'],
+      relations: ["project"],
     });
 
     if (!expense) {
@@ -39,7 +39,10 @@ export class ExpensesService {
     return expense;
   }
 
-  async update(id: string, updateExpenseDto: UpdateExpenseDto): Promise<Expense> {
+  async update(
+    id: string,
+    updateExpenseDto: UpdateExpenseDto,
+  ): Promise<Expense> {
     const expense = await this.findOne(id);
     Object.assign(expense, updateExpenseDto);
     return this.expensesRepository.save(expense);
@@ -50,5 +53,3 @@ export class ExpensesService {
     await this.expensesRepository.remove(expense);
   }
 }
-
-

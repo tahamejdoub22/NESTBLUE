@@ -1,6 +1,6 @@
-import { IsString, IsEnum, IsArray, IsOptional } from 'class-validator';
-import { Transform } from 'class-transformer';
-import { ProjectMemberRole } from '../entities/project-member.entity';
+import { IsString, IsEnum, IsArray, IsOptional } from "class-validator";
+import { Transform } from "class-transformer";
+import { ProjectMemberRole } from "../entities/project-member.entity";
 
 export class InviteMemberDto {
   @IsString()
@@ -8,7 +8,7 @@ export class InviteMemberDto {
 
   @IsOptional()
   @Transform(({ value }) => {
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       const lowerValue = value.toLowerCase();
       // Check if the value matches any enum value
       const enumValues = Object.values(ProjectMemberRole);
@@ -34,7 +34,7 @@ export class InviteMembersDto {
 
   @IsOptional()
   @Transform(({ value }) => {
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       const lowerValue = value.toLowerCase();
       // Check if the value matches any enum value
       const enumValues = Object.values(ProjectMemberRole);
@@ -52,4 +52,3 @@ export class InviteMembersDto {
   @IsEnum(ProjectMemberRole)
   role?: ProjectMemberRole;
 }
-

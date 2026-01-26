@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsBoolean } from "class-validator";
 
 export class CreateSpaceDto {
   @IsString()
@@ -48,4 +48,3 @@ export class UpdateSpaceDto {
   @IsBoolean()
   isActive?: boolean;
 }
-

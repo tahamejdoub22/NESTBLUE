@@ -1,5 +1,11 @@
-import { IsString, IsEnum, IsArray, IsOptional, IsBoolean } from 'class-validator';
-import { ConversationType } from '../entities/conversation.entity';
+import {
+  IsString,
+  IsEnum,
+  IsArray,
+  IsOptional,
+  IsBoolean,
+} from "class-validator";
+import { ConversationType } from "../entities/conversation.entity";
 
 export class CreateConversationDto {
   @IsString()
@@ -29,5 +35,3 @@ export class CreateConversationDto {
   @IsString()
   spaceId?: string;
 }
-
-

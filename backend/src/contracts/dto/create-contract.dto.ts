@@ -1,6 +1,14 @@
-import { IsString, IsNumber, IsEnum, IsOptional, IsArray, IsDateString, IsBoolean } from 'class-validator';
-import { CostCategory, Currency } from '../../costs/entities/cost.entity';
-import { ContractStatus, PaymentFrequency } from '../entities/contract.entity';
+import {
+  IsString,
+  IsNumber,
+  IsEnum,
+  IsOptional,
+  IsArray,
+  IsDateString,
+  IsBoolean,
+} from "class-validator";
+import { CostCategory, Currency } from "../../costs/entities/cost.entity";
+import { ContractStatus, PaymentFrequency } from "../entities/contract.entity";
 
 export class CreateContractDto {
   @IsString()
@@ -73,5 +81,3 @@ export class CreateContractDto {
   @IsString()
   notes?: string;
 }
-
-

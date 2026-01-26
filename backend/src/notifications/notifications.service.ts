@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Notification, NotificationType } from './entities/notification.entity';
-import { CreateNotificationDto } from './dto/create-notification.dto';
-import { NotificationsGateway } from './notifications.gateway';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Notification, NotificationType } from "./entities/notification.entity";
+import { CreateNotificationDto } from "./dto/create-notification.dto";
+import { NotificationsGateway } from "./notifications.gateway";
 
 @Injectable()
 export class NotificationsService {
@@ -16,32 +21,41 @@ export class NotificationsService {
 
   async create(createDto: CreateNotificationDto): Promise<Notification> {
     const notification = this.notificationsRepository.create(createDto);
-    const savedNotification = await this.notificationsRepository.save(notification);
-    
+    const savedNotification =
+      await this.notificationsRepository.save(notification);
+
     // Emit real-time notification via WebSocket
     try {
-      this.notificationsGateway.sendNotificationToUser(createDto.userId, savedNotification);
-      
+      this.notificationsGateway.sendNotificationToUser(
+        createDto.userId,
+        savedNotification,
+      );
+
       // Also update unread count
       const unreadCount = await this.getUnreadCount(createDto.userId);
-      this.notificationsGateway.sendUnreadCountUpdate(createDto.userId, unreadCount);
+      this.notificationsGateway.sendUnreadCountUpdate(
+        createDto.userId,
+        unreadCount,
+      );
     } catch (error) {
-      console.error('Error emitting notification via WebSocket:', error);
+      console.error("Error emitting notification via WebSocket:", error);
       // Don't fail the notification creation if WebSocket fails
     }
-    
+
     return savedNotification;
   }
 
   async findAll(userId: string): Promise<Notification[]> {
     return this.notificationsRepository.find({
       where: { userId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: "DESC" },
     });
   }
 
   async findOne(id: string): Promise<Notification> {
-    const notification = await this.notificationsRepository.findOne({ where: { id } });
+    const notification = await this.notificationsRepository.findOne({
+      where: { id },
+    });
 
     if (!notification) {
       throw new NotFoundException(`Notification with ID ${id} not found`);
@@ -53,25 +67,28 @@ export class NotificationsService {
   async markRead(id: string): Promise<void> {
     const notification = await this.findOne(id);
     await this.notificationsRepository.update(id, { read: true });
-    
+
     // Emit unread count update
     try {
       const unreadCount = await this.getUnreadCount(notification.userId);
-      this.notificationsGateway.sendUnreadCountUpdate(notification.userId, unreadCount);
+      this.notificationsGateway.sendUnreadCountUpdate(
+        notification.userId,
+        unreadCount,
+      );
     } catch (error) {
-      console.error('Error emitting unread count update:', error);
+      console.error("Error emitting unread count update:", error);
     }
   }
 
   async markAllRead(userId: string): Promise<void> {
     await this.notificationsRepository.update({ userId }, { read: true });
-    
+
     // Emit unread count update
     try {
       const unreadCount = await this.getUnreadCount(userId);
       this.notificationsGateway.sendUnreadCountUpdate(userId, unreadCount);
     } catch (error) {
-      console.error('Error emitting unread count update:', error);
+      console.error("Error emitting unread count update:", error);
     }
   }
 
@@ -79,13 +96,13 @@ export class NotificationsService {
     const notification = await this.findOne(id);
     const userId = notification.userId;
     await this.notificationsRepository.remove(notification);
-    
+
     // Emit unread count update
     try {
       const unreadCount = await this.getUnreadCount(userId);
       this.notificationsGateway.sendUnreadCountUpdate(userId, unreadCount);
     } catch (error) {
-      console.error('Error emitting unread count update:', error);
+      console.error("Error emitting unread count update:", error);
     }
   }
 
@@ -136,19 +153,67 @@ export class NotificationsService {
       taskId?: string;
     },
   ): Promise<Notification[]> {
-    const notifications = await Promise.all(
-      userIds.map(userId =>
-        this.create({
-          userId,
-          title,
-          message,
-          type,
-          ...options,
-        }),
-      ),
+    if (!userIds || userIds.length === 0) {
+      return [];
+    }
+
+    // Batch create notifications
+    const notifications = userIds.map((userId) =>
+      this.notificationsRepository.create({
+        userId,
+        title,
+        message,
+        type,
+        ...options,
+      }),
     );
-    return notifications;
+
+    // Single DB query for all inserts
+    const savedNotifications =
+      await this.notificationsRepository.save(notifications);
+
+    // Send real-time notifications via WebSocket
+    savedNotifications.forEach((notification) => {
+      try {
+        this.notificationsGateway.sendNotificationToUser(
+          notification.userId,
+          notification,
+        );
+      } catch (error) {
+        console.error(
+          `Error sending notification to user ${notification.userId}:`,
+          error,
+        );
+      }
+    });
+
+    // Optimize unread count updates:
+    // Instead of N queries (one per user), do 1 query to get counts for all users
+    try {
+      const uniqueUserIds = [...new Set(userIds)];
+
+      const counts = await this.notificationsRepository
+        .createQueryBuilder("n")
+        .select("n.userId", "userId")
+        .addSelect("COUNT(n.id)", "count")
+        .where("n.userId IN (:...userIds)", { userIds: uniqueUserIds })
+        .andWhere("n.read = :read", { read: false })
+        .groupBy("n.userId")
+        .getRawMany();
+
+      const countMap = new Map<string, number>();
+      counts.forEach((row) => {
+        countMap.set(row.userId, parseInt(row.count, 10));
+      });
+
+      uniqueUserIds.forEach((userId) => {
+        const count = countMap.get(userId) || 0;
+        this.notificationsGateway.sendUnreadCountUpdate(userId, count);
+      });
+    } catch (error) {
+      console.error("Error updating unread counts:", error);
+    }
+
+    return savedNotifications;
   }
 }
-
-

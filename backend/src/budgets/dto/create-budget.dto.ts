@@ -1,6 +1,12 @@
-import { IsString, IsNumber, IsEnum, IsOptional, IsDateString } from 'class-validator';
-import { CostCategory, Currency } from '../../costs/entities/cost.entity';
-import { BudgetPeriod } from '../entities/budget.entity';
+import {
+  IsString,
+  IsNumber,
+  IsEnum,
+  IsOptional,
+  IsDateString,
+} from "class-validator";
+import { CostCategory, Currency } from "../../costs/entities/cost.entity";
+import { BudgetPeriod } from "../entities/budget.entity";
 
 export class CreateBudgetDto {
   @IsString()
@@ -29,5 +35,3 @@ export class CreateBudgetDto {
   @IsString()
   projectId?: string;
 }
-
-

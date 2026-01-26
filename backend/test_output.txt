@@ -1,0 +1,37 @@
+
+> cost-management-backend@1.0.0 test
+> jest
+
+PASS src/dashboard/dashboard.service.spec.ts (6.253 s)
+PASS src/messages/messages.service.spec.ts (6.397 s)
+PASS src/users/users.controller.security.spec.ts (6.655 s)
+PASS src/dashboard/dashboard.service.members.spec.ts
+PASS src/notifications/notifications.service.spec.ts
+PASS src/sprints/sprints.service.spec.ts
+PASS src/auth/auth.service.security.spec.ts
+PASS src/users/users.service.spec.ts
+PASS src/common/guards/rate-limiter.guard.spec.ts
+[31m[Nest] 4850  - [39m01/26/2026, 12:19:19 PM [31m  ERROR[39m [38;5;3m[EmailService] [39m[31mFailed to send email to test@example.com[39m
+Error: Failed
+    at Object.<anonymous> (/app/backend/src/email/email.service.spec.ts:65:40)
+    at Promise.then.completed (/app/backend/node_modules/jest-circus/build/utils.js:298:28)
+    at new Promise (<anonymous>)
+    at callAsyncCircusFn (/app/backend/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/app/backend/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/app/backend/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/app/backend/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/app/backend/node_modules/jest-circus/build/run.js:121:9)
+    at run (/app/backend/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/app/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/app/backend/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/app/backend/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/app/backend/node_modules/jest-runner/build/runTest.js:444:34)
+    at Object.worker (/app/backend/node_modules/jest-runner/build/testWorker.js:106:12)
+PASS src/email/email.service.spec.ts
+
+Test Suites: 10 passed, 10 total
+Tests:       33 passed, 33 total
+Snapshots:   0 total
+Time:        8.108 s, estimated 12 s
+Ran all test suites.

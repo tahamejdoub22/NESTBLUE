@@ -1,6 +1,14 @@
-import { IsString, IsNumber, IsEnum, IsOptional, IsArray, IsDateString, IsBoolean } from 'class-validator';
-import { CostCategory, Currency } from '../../costs/entities/cost.entity';
-import { ExpenseFrequency } from '../entities/expense.entity';
+import {
+  IsString,
+  IsNumber,
+  IsEnum,
+  IsOptional,
+  IsArray,
+  IsDateString,
+  IsBoolean,
+} from "class-validator";
+import { CostCategory, Currency } from "../../costs/entities/cost.entity";
+import { ExpenseFrequency } from "../entities/expense.entity";
 
 export class CreateExpenseDto {
   @IsString()
@@ -42,5 +50,3 @@ export class CreateExpenseDto {
   @IsString()
   projectId?: string;
 }
-
-

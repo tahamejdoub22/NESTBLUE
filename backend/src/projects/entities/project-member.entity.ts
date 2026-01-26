@@ -6,52 +6,51 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   Index,
-} from 'typeorm';
-import { Project } from './project.entity';
-import { User } from '../../users/entities/user.entity';
+} from "typeorm";
+import { Project } from "./project.entity";
+import { User } from "../../users/entities/user.entity";
 
 export enum ProjectMemberRole {
-  OWNER = 'owner',
-  ADMIN = 'admin',
-  MEMBER = 'member',
-  VIEWER = 'viewer',
+  OWNER = "owner",
+  ADMIN = "admin",
+  MEMBER = "member",
+  VIEWER = "viewer",
 }
 
-@Entity('project_members')
-@Index(['projectUid', 'userId'], { unique: true })
+@Entity("project_members")
+@Index(["projectUid", "userId"], { unique: true })
 export class ProjectMember {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: "varchar", length: 50 })
   projectUid: string;
 
-  @ManyToOne(() => Project, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'projectUid', referencedColumnName: 'uid' })
+  @ManyToOne(() => Project, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "projectUid", referencedColumnName: "uid" })
   project: Project;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: "uuid" })
   userId: string;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
+  @ManyToOne(() => User, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "userId" })
   user: User;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: ProjectMemberRole,
     default: ProjectMemberRole.MEMBER,
   })
   role: ProjectMemberRole;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: "uuid", nullable: true })
   invitedById: string;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'invitedById' })
+  @JoinColumn({ name: "invitedById" })
   invitedBy: User;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ type: "timestamptz" })
   joinedAt: Date;
 }
-

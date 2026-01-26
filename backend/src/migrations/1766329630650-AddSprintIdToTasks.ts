@@ -1,17 +1,17 @@
-import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
+import { MigrationInterface, QueryRunner, TableColumn } from "typeorm";
 
 export class AddSprintIdToTasks1766329630650 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Check if the column already exists
-    const table = await queryRunner.getTable('tasks');
-    const sprintIdColumn = table?.findColumnByName('sprintId');
+    const table = await queryRunner.getTable("tasks");
+    const sprintIdColumn = table?.findColumnByName("sprintId");
 
     if (!sprintIdColumn) {
       await queryRunner.addColumn(
-        'tasks',
+        "tasks",
         new TableColumn({
-          name: 'sprintId',
-          type: 'uuid',
+          name: "sprintId",
+          type: "uuid",
           isNullable: true,
         }),
       );
@@ -30,26 +30,26 @@ export class AddSprintIdToTasks1766329630650 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Remove foreign key constraint first
-    const table = await queryRunner.getTable('tasks');
+    const table = await queryRunner.getTable("tasks");
     if (!table) return;
 
     const foreignKey = table.foreignKeys.find(
-      (fk) => fk.columnNames.indexOf('sprintId') !== -1,
+      (fk) => fk.columnNames.indexOf("sprintId") !== -1,
     );
 
     if (foreignKey) {
       try {
-        await queryRunner.dropForeignKey('tasks', foreignKey);
+        await queryRunner.dropForeignKey("tasks", foreignKey);
       } catch (error) {
         // Constraint might not exist, ignore error
-        console.warn('Foreign key constraint might not exist:', error);
+        console.warn("Foreign key constraint might not exist:", error);
       }
     }
 
     // Drop the column
-    const sprintIdColumn = table.findColumnByName('sprintId');
+    const sprintIdColumn = table.findColumnByName("sprintId");
     if (sprintIdColumn) {
-      await queryRunner.dropColumn('tasks', 'sprintId');
+      await queryRunner.dropColumn("tasks", "sprintId");
     }
   }
 }

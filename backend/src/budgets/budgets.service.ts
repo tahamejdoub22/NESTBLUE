@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Budget } from './entities/budget.entity';
-import { CreateBudgetDto } from './dto/create-budget.dto';
-import { UpdateBudgetDto } from './dto/update-budget.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Budget } from "./entities/budget.entity";
+import { CreateBudgetDto } from "./dto/create-budget.dto";
+import { UpdateBudgetDto } from "./dto/update-budget.dto";
 
 @Injectable()
 export class BudgetsService {
@@ -21,15 +21,15 @@ export class BudgetsService {
     const where = projectId ? { projectId } : {};
     return this.budgetsRepository.find({
       where,
-      relations: ['project'],
-      order: { startDate: 'DESC' },
+      relations: ["project"],
+      order: { startDate: "DESC" },
     });
   }
 
   async findOne(id: string): Promise<Budget> {
     const budget = await this.budgetsRepository.findOne({
       where: { id },
-      relations: ['project'],
+      relations: ["project"],
     });
 
     if (!budget) {
@@ -50,5 +50,3 @@ export class BudgetsService {
     await this.budgetsRepository.remove(budget);
   }
 }
-
-

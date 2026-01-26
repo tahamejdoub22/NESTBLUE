@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { ConfigService } from '@nestjs/config';
-import { v4 as uuidv4 } from 'uuid';
+import { Injectable } from "@nestjs/common";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { ConfigService } from "@nestjs/config";
+import { v4 as uuidv4 } from "uuid";
 
 @Injectable()
 export class StorageService {
@@ -10,14 +10,16 @@ export class StorageService {
   private s3Endpoint: string;
 
   constructor(private readonly config: ConfigService) {
-    this.bucket = this.config.get<string>('SUPABASE_S3_BUCKET')!;
-    this.s3Endpoint = this.config.get<string>('SUPABASE_S3_ENDPOINT')!;
+    this.bucket = this.config.get<string>("SUPABASE_S3_BUCKET")!;
+    this.s3Endpoint = this.config.get<string>("SUPABASE_S3_ENDPOINT")!;
 
     this.s3 = new S3Client({
-      region: this.config.get<string>('SUPABASE_S3_REGION')!,
+      region: this.config.get<string>("SUPABASE_S3_REGION")!,
       credentials: {
-        accessKeyId: this.config.get<string>('SUPABASE_S3_ACCESS_KEY_ID')!,
-        secretAccessKey: this.config.get<string>('SUPABASE_S3_SECRET_ACCESS_KEY')!,
+        accessKeyId: this.config.get<string>("SUPABASE_S3_ACCESS_KEY_ID")!,
+        secretAccessKey: this.config.get<string>(
+          "SUPABASE_S3_SECRET_ACCESS_KEY",
+        )!,
       },
       endpoint: this.s3Endpoint,
       forcePathStyle: true,
@@ -41,11 +43,12 @@ export class StorageService {
     );
 
     // Public URL pattern for Supabase Storage (public bucket)
-    const publicBase = this.s3Endpoint.replace('/storage/v1/s3', '/storage/v1/object/public');
+    const publicBase = this.s3Endpoint.replace(
+      "/storage/v1/s3",
+      "/storage/v1/object/public",
+    );
     const url = `${publicBase}/${this.bucket}/${objectKey}`;
 
     return { key: objectKey, url };
   }
 }
-
-

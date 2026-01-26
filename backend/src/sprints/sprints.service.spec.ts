@@ -1,11 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { SprintsService } from './sprints.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Sprint } from './entities/sprint.entity';
-import { Task } from '../tasks/entities/task.entity';
-import { Repository } from 'typeorm';
+import { Test, TestingModule } from "@nestjs/testing";
+import { SprintsService } from "./sprints.service";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Sprint } from "./entities/sprint.entity";
+import { Task } from "../tasks/entities/task.entity";
+import { Repository } from "typeorm";
 
-describe('SprintsService', () => {
+describe("SprintsService", () => {
   let service: SprintsService;
   let sprintsRepository: Repository<Sprint>;
   let tasksRepository: Repository<Task>;
@@ -42,17 +42,19 @@ describe('SprintsService', () => {
     }).compile();
 
     service = module.get<SprintsService>(SprintsService);
-    sprintsRepository = module.get<Repository<Sprint>>(getRepositoryToken(Sprint));
+    sprintsRepository = module.get<Repository<Sprint>>(
+      getRepositoryToken(Sprint),
+    );
     tasksRepository = module.get<Repository<Task>>(getRepositoryToken(Task));
 
     jest.clearAllMocks();
   });
 
-  describe('findAll', () => {
-    it('should find all sprints WITHOUT recalculating counts (optimized behavior)', async () => {
+  describe("findAll", () => {
+    it("should find all sprints WITHOUT recalculating counts (optimized behavior)", async () => {
       const mockSprints = [
-        { id: '1', startDate: new Date() },
-        { id: '2', startDate: new Date() },
+        { id: "1", startDate: new Date() },
+        { id: "2", startDate: new Date() },
       ];
       mockSprintsRepository.find.mockResolvedValue(mockSprints);
 
@@ -69,9 +71,9 @@ describe('SprintsService', () => {
     });
   });
 
-  describe('findOne', () => {
-    it('should find one sprint WITHOUT recalculating counts (optimized behavior)', async () => {
-      const sprintId = 'test-sprint';
+  describe("findOne", () => {
+    it("should find one sprint WITHOUT recalculating counts (optimized behavior)", async () => {
+      const sprintId = "test-sprint";
       const mockSprint = { id: sprintId, startDate: new Date() };
       mockSprintsRepository.findOne.mockResolvedValue(mockSprint);
 
@@ -79,7 +81,7 @@ describe('SprintsService', () => {
 
       expect(mockSprintsRepository.findOne).toHaveBeenCalledWith({
         where: { id: sprintId },
-        relations: ['project'],
+        relations: ["project"],
       });
       // Should NOT call recalculateTaskCounts (which calls tasksRepository.count and update)
       expect(mockTasksRepository.count).not.toHaveBeenCalled();
@@ -87,15 +89,17 @@ describe('SprintsService', () => {
     });
   });
 
-  describe('recalculateTaskCounts', () => {
-    it('should use count and createQueryBuilder instead of find', async () => {
-      const sprintId = 'test-sprint';
+  describe("recalculateTaskCounts", () => {
+    it("should use count and createQueryBuilder instead of find", async () => {
+      const sprintId = "test-sprint";
       mockTasksRepository.count.mockResolvedValue(10);
 
       await service.recalculateTaskCounts(sprintId);
 
       expect(mockTasksRepository.find).not.toHaveBeenCalled();
-      expect(mockTasksRepository.count).toHaveBeenCalledWith({ where: { sprintId } });
+      expect(mockTasksRepository.count).toHaveBeenCalledWith({
+        where: { sprintId },
+      });
       expect(mockTasksRepository.createQueryBuilder).toHaveBeenCalled();
       expect(mockSprintsRepository.update).toHaveBeenCalledWith(sprintId, {
         taskCount: 10,

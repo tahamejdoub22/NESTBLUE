@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Note, NoteColor } from './entities/note.entity';
-import { CreateNoteDto } from './dto/create-note.dto';
-import { UpdateNoteDto } from './dto/update-note.dto';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Note, NoteColor } from "./entities/note.entity";
+import { CreateNoteDto } from "./dto/create-note.dto";
+import { UpdateNoteDto } from "./dto/update-note.dto";
 
 @Injectable()
 export class NotesService {
@@ -15,7 +20,7 @@ export class NotesService {
   async create(createNoteDto: CreateNoteDto, userId: string): Promise<Note> {
     try {
       if (!userId) {
-        throw new BadRequestException('UserId is required');
+        throw new BadRequestException("UserId is required");
       }
       const note = this.notesRepository.create({
         ...createNoteDto,
@@ -25,30 +30,30 @@ export class NotesService {
       });
       return await this.notesRepository.save(note);
     } catch (error) {
-      console.error('Error in NotesService.create:', error);
+      console.error("Error in NotesService.create:", error);
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to create note');
+      throw new InternalServerErrorException("Failed to create note");
     }
   }
 
   async findAll(userId: string): Promise<Note[]> {
     try {
       if (!userId) {
-        throw new BadRequestException('UserId is required');
+        throw new BadRequestException("UserId is required");
       }
       const notes = await this.notesRepository.find({
         where: { userId },
-        order: { createdAt: 'DESC' },
+        order: { createdAt: "DESC" },
       });
       return notes || [];
     } catch (error) {
-      console.error('Error in NotesService.findAll:', error);
+      console.error("Error in NotesService.findAll:", error);
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to fetch notes');
+      throw new InternalServerErrorException("Failed to fetch notes");
     }
   }
 
@@ -62,7 +67,11 @@ export class NotesService {
     return note;
   }
 
-  async update(id: string, updateNoteDto: UpdateNoteDto, userId: string): Promise<Note> {
+  async update(
+    id: string,
+    updateNoteDto: UpdateNoteDto,
+    userId: string,
+  ): Promise<Note> {
     const note = await this.findOne(id, userId);
     Object.assign(note, updateNoteDto);
     return this.notesRepository.save(note);
@@ -73,5 +82,3 @@ export class NotesService {
     await this.notesRepository.remove(note);
   }
 }
-
-
