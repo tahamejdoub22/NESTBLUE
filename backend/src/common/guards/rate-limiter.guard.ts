@@ -48,7 +48,7 @@ export class RateLimiterGuard implements CanActivate {
 
     if (record.count >= this.MAX_REQUESTS) {
       throw new HttpException(
-        'Too many login attempts. Please try again later.',
+        'Too many requests. Please try again later.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
