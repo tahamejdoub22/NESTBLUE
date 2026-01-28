@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { useState, useEffect } from "react";
+import { TooltipProvider } from "@/components/atoms";
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -90,9 +91,11 @@ export function Providers({ children }: ProvidersProps) {
         enableSystem
         disableTransitionOnChange
       >
-        <ScrollRestorationHandler />
-        <ExtensionErrorSuppressor />
-        {children}
+        <TooltipProvider>
+          <ScrollRestorationHandler />
+          <ExtensionErrorSuppressor />
+          {children}
+        </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
