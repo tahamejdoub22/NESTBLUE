@@ -20,7 +20,8 @@ describe('DashboardService', () => {
   let costsRepository: Repository<Cost>;
   let expensesRepository: Repository<Expense>;
 
-  const mockQueryBuilder = {
+  // Mock for Tasks Service aggregation (sprints)
+  const mockTaskQueryBuilder = {
     select: jest.fn().mockReturnThis(),
     addSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
@@ -28,9 +29,17 @@ describe('DashboardService', () => {
     getRawMany: jest.fn(),
   };
 
+  // Mock for Budget/Cost/Expense aggregation
+  const mockAggregationQueryBuilder = {
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn(),
+  };
+
   const mockTasksRepository = {
     find: jest.fn(),
-    createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+    createQueryBuilder: jest.fn().mockReturnValue(mockTaskQueryBuilder),
   };
 
   const mockSprintsRepository = {
@@ -46,24 +55,61 @@ describe('DashboardService', () => {
     find: jest.fn().mockResolvedValue([]),
   };
 
+  const mockBudgetsRepository = {
+    find: jest.fn().mockResolvedValue([]),
+    createQueryBuilder: jest.fn().mockReturnValue(mockAggregationQueryBuilder),
+  };
+
+  const mockCostsRepository = {
+    find: jest.fn().mockResolvedValue([]),
+    createQueryBuilder: jest.fn().mockReturnValue(mockAggregationQueryBuilder),
+  };
+
+  const mockExpensesRepository = {
+    find: jest.fn().mockResolvedValue([]),
+    createQueryBuilder: jest.fn().mockReturnValue(mockAggregationQueryBuilder),
+  };
+
   const mockNotificationsRepository = {
     find: jest.fn().mockResolvedValue([]),
   };
 
   beforeEach(async () => {
     mockNotificationsRepository.find.mockResolvedValue([]);
+    // Reset query builder mocks
+    mockAggregationQueryBuilder.getRawMany.mockReset();
+    mockTaskQueryBuilder.getRawMany.mockReset();
+
+    // Set default returns for aggregation to avoid "undefined" errors in other tests
+    mockAggregationQueryBuilder.getRawMany.mockResolvedValue([]);
+    mockTaskQueryBuilder.getRawMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardService,
-        { provide: getRepositoryToken(Project), useValue: mockProjectsRepository },
+        {
+          provide: getRepositoryToken(Project),
+          useValue: mockProjectsRepository,
+        },
         { provide: getRepositoryToken(Task), useValue: mockTasksRepository },
-        { provide: getRepositoryToken(Sprint), useValue: mockSprintsRepository },
+        {
+          provide: getRepositoryToken(Sprint),
+          useValue: mockSprintsRepository,
+        },
         { provide: getRepositoryToken(User), useValue: mockRepository },
-        { provide: getRepositoryToken(Cost), useValue: mockRepository },
-        { provide: getRepositoryToken(Expense), useValue: mockRepository },
-        { provide: getRepositoryToken(Budget), useValue: mockRepository },
-        { provide: getRepositoryToken(Notification), useValue: mockNotificationsRepository },
+        { provide: getRepositoryToken(Cost), useValue: mockCostsRepository },
+        {
+          provide: getRepositoryToken(Expense),
+          useValue: mockExpensesRepository,
+        },
+        {
+          provide: getRepositoryToken(Budget),
+          useValue: mockBudgetsRepository,
+        },
+        {
+          provide: getRepositoryToken(Notification),
+          useValue: mockNotificationsRepository,
+        },
       ],
     }).compile();
 
@@ -114,6 +160,9 @@ describe('DashboardService', () => {
       return Promise.resolve([]);
     });
     mockNotificationsRepository.find.mockResolvedValue(notifications);
+    // Needed for costTrend
+    mockCostsRepository.find.mockResolvedValue([]);
+    mockExpensesRepository.find.mockResolvedValue([]);
 
     const result = await service.getDashboardData('user-1');
 
@@ -137,10 +186,14 @@ describe('DashboardService', () => {
     mockTasksRepository.find.mockResolvedValue([]); // For allTasks
 
     // Mock aggregate query result
-    mockQueryBuilder.getRawMany.mockResolvedValue([
+    mockTaskQueryBuilder.getRawMany.mockResolvedValue([
       { sprintId: 'sprint-1', count: '5', completedCount: '2' },
       { sprintId: 'sprint-2', count: '3', completedCount: '3' },
     ]);
+
+    // Needed for costTrend
+    mockCostsRepository.find.mockResolvedValue([]);
+    mockExpensesRepository.find.mockResolvedValue([]);
 
     await service.getDashboardData('user-1');
 
@@ -150,9 +203,9 @@ describe('DashboardService', () => {
 
     // 1 call for createQueryBuilder (the optimization)
     expect(tasksRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
-    expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+    expect(mockTaskQueryBuilder.where).toHaveBeenCalledWith(
       'task.sprintId IN (:...sprintIds)',
-      { sprintIds: ['sprint-1', 'sprint-2'] }
+      { sprintIds: ['sprint-1', 'sprint-2'] },
     );
 
     // Ensure updates happened with correct values
@@ -169,61 +222,21 @@ describe('DashboardService', () => {
   it('should calculate project budget correctly', async () => {
     // Setup data
     const project = { uid: 'proj-1', name: 'Project 1' };
-    const budgets = [{ projectId: 'proj-1', amount: 1000 }];
-    const costs = [{ projectId: 'proj-1', amount: 200 }];
-    const expenses = [{ projectId: 'proj-1', amount: 50 }];
+
+    // Order: Budgets, Costs, Expenses
+    mockAggregationQueryBuilder.getRawMany
+      .mockResolvedValueOnce([{ projectId: 'proj-1', total: '1000' }]) // Budget
+      .mockResolvedValueOnce([{ projectId: 'proj-1', total: '200' }]) // Cost
+      .mockResolvedValueOnce([{ projectId: 'proj-1', total: '50' }]); // Expense
 
     // Mock responses
     mockProjectsRepository.find.mockResolvedValue([project]);
     mockTasksRepository.find.mockResolvedValue([]);
     mockSprintsRepository.find.mockResolvedValue([]);
 
-    // Mock budget/cost/expense repositories using the shared mockRepository
-    // Since they all use mockRepository, we can just spy on the find method of each injected instance
-    // Note: In the beforeEach, we assigned mockRepository to these tokens.
-    // However, mockRepository.find is a shared jest.fn().
-    // To mock specific return values per repository, we might need to rely on the fact that
-    // NestJS testing module provides the SAME instance of mockRepository for all of them.
-    // BUT, we want different returns for different calls? No, find is called once for each.
-    // So we can mock the implementation of find to return different things based on what is being asked?
-    // Or simpler: The DashboardService calls budgetsRepository.find, costsRepository.find, expensesRepository.find sequentially.
-    // But since they are all the SAME mock object, calling mockResolvedValue on one affects all.
-
-    // We need to distinguish them.
-    // Let's check how they are provided.
-    // { provide: getRepositoryToken(Budget), useValue: mockRepository },
-    // They share the same object. This is a problem for mocking different responses for find().
-
-    // However, calculateBudgetCostMetrics calls:
-    // budgetsRepository.find({ relations: ['project'] })
-    // costsRepository.find({ relations: ['project'] })
-    // expensesRepository.find({ relations: ['project'] })
-
-    // Since they are the same mock function, we can use mockReturnValueOnce.
-    // The order of calls in calculateBudgetCostMetrics is: budgets, costs, expenses.
-
-    // Reset the shared mock first (cleared in afterEach, but good to be sure)
-    const findMock = budgetsRepository.find as jest.Mock;
-    findMock.mockReset();
-
-    // Sequence of find calls in getDashboardData:
-    // 1. projectsRepository.find (mockProjectsRepository)
-    // 2. tasksRepository.find (mockTasksRepository)
-    // 3. sprintsRepository.find (mockSprintsRepository) - active sprints
-    // 4. tasksRepository.createQueryBuilder (mockTasksRepository)
-    // 5. usersRepository.find (mockRepository)
-    // 6. notificationsRepository.find (mockRepository) -> getUserActivity
-    // 7. budgetsRepository.find (mockRepository) -> calculateBudgetCostMetrics
-    // 8. costsRepository.find (mockRepository) -> calculateBudgetCostMetrics
-    // 9. expensesRepository.find (mockRepository) -> calculateBudgetCostMetrics
-
-    // So we need to mock responses for users, notifications, budgets, costs, expenses.
-
-    findMock
-      .mockResolvedValueOnce([]) // users
-      .mockResolvedValueOnce(budgets) // budgets
-      .mockResolvedValueOnce(costs) // costs
-      .mockResolvedValueOnce(expenses); // expenses
+    // Mock for recent costs/expenses (costTrend)
+    mockCostsRepository.find.mockResolvedValue([]);
+    mockExpensesRepository.find.mockResolvedValue([]);
 
     const result = await service.getDashboardData('user-1');
 
@@ -234,5 +247,9 @@ describe('DashboardService', () => {
       spent: 250,
       remaining: 750,
     });
+
+    expect(mockBudgetsRepository.createQueryBuilder).toHaveBeenCalled();
+    expect(mockCostsRepository.createQueryBuilder).toHaveBeenCalled();
+    expect(mockExpensesRepository.createQueryBuilder).toHaveBeenCalled();
   });
 });
