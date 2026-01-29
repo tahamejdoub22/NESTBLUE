@@ -37,20 +37,20 @@ export class MessagesController {
 
   @Get('conversations/:id')
   @ApiOperation({ summary: 'Get conversation by ID' })
-  findConversationById(@Param('id') id: string) {
-    return this.messagesService.findConversationById(id);
+  findConversationById(@Param('id') id: string, @Request() req) {
+    return this.messagesService.findConversationById(id, req.user.userId);
   }
 
   @Patch('conversations/:id')
   @ApiOperation({ summary: 'Update conversation' })
-  updateConversation(@Param('id') id: string, @Body() updateData: any) {
-    return this.messagesService.updateConversation(id, updateData);
+  updateConversation(@Param('id') id: string, @Body() updateData: any, @Request() req) {
+    return this.messagesService.updateConversation(id, updateData, req.user.userId);
   }
 
   @Delete('conversations/:id')
   @ApiOperation({ summary: 'Delete conversation' })
-  deleteConversation(@Param('id') id: string) {
-    return this.messagesService.deleteConversation(id);
+  deleteConversation(@Param('id') id: string, @Request() req) {
+    return this.messagesService.deleteConversation(id, req.user.userId);
   }
 
   @Patch('conversations/:id/read')
@@ -62,8 +62,8 @@ export class MessagesController {
   // Messages
   @Get('conversations/:conversationId/messages')
   @ApiOperation({ summary: 'Get messages by conversation' })
-  getMessagesByConversation(@Param('conversationId') conversationId: string) {
-    return this.messagesService.findMessagesByConversation(conversationId);
+  getMessagesByConversation(@Param('conversationId') conversationId: string, @Request() req) {
+    return this.messagesService.findMessagesByConversation(conversationId, req.user.userId);
   }
 
   @Post('conversations/:conversationId/messages')

@@ -6,6 +6,6 @@
 **Learning:** The `SprintsService.findOne` method was recalculating task counts on every read, causing a hidden N+1 query issue (2 extra queries per read) and also contained a reference error bug.
 **Action:** Relied on event-driven updates from `TasksService` to maintain counts in `Sprint` entity, and removed the recalculation from the read path. Always verify that "freshness" checks aren't secretly performing expensive writes during reads.
 
-## 2026-01-25 - ProjectsService Bulk Invite N+1
-**Learning:** The `ProjectsService.inviteMembers` method was performing N+1 queries by repeating project permission checks and user existence checks for every invited user in a loop.
-**Action:** Extracted the permission check to be run once before the loop. While user existence checks are still iterative (due to missing `findByIds` in UsersService), the core permission overhead was removed. Always audit bulk operations for repetitive checks that are invariant across the loop.
+## 2024-05-25 - Metrics Calculation Optimization
+**Learning:** Found that `calculateBudgetCostMetrics` was fetching the entire `budgets`, `costs`, and `expenses` tables to calculate sums in memory. This scales linearly with database size (O(N)), causing severe performance degradation.
+**Action:** Replaced with `createQueryBuilder` aggregation queries (SUM + GROUP BY) to offload calculation to the database. Always check "statistics" or "metrics" methods for hidden `findAll` calls.
