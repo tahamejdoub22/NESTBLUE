@@ -7,3 +7,8 @@
 **Vulnerability:** The `MessagesService` exposed conversation data and operations (update/delete) via ID without checking if the requesting user was a participant.
 **Learning:** Checking for authentication (JWT) is not enough; authorization (checking access to specific resources) is critical.
 **Prevention:** Implement resource-level access control checks (e.g., `checkConversationAccess`) at the beginning of service methods.
+
+## 2026-01-22 - IDOR in ProjectsService
+**Vulnerability:** `ProjectsService.findOne` allowed fetching any project by UID without checking user membership, exposing sensitive project data to any authenticated user.
+**Learning:** Generic "findOne" methods in services often bypass access control if they are used by both internal logic (which might need full access) and controllers (which need restricted access).
+**Prevention:** Add optional `checkAccessForUserId` parameters to service methods or enforce access control explicitly in controllers before calling data retrieval methods.
