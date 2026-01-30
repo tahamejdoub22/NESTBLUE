@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User, UserStatus } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -43,6 +43,12 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
     return user;
+  }
+
+  async findByIds(ids: string[]): Promise<User[]> {
+    return this.usersRepository.find({
+      where: { id: In(ids) },
+    });
   }
 
   async findByEmail(email: string): Promise<User | null> {
