@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, MoreThanOrEqual } from 'typeorm';
+import { Repository, In, MoreThanOrEqual, Brackets } from 'typeorm';
 import { Project } from '../projects/entities/project.entity';
 import { Task, TaskStatus, TaskPriority } from '../tasks/entities/task.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
@@ -223,32 +223,9 @@ export class DashboardService {
 
   async getMonthlyProjectOverview(userId: string, period: 'week' | 'month' | 'year' = 'month') {
     try {
-      // Get all projects
-      const projects = await this.projectsRepository.find().catch(() => []);
-      console.log(`[ProjectOverview] Found ${projects.length} projects`);
-
-      // Get all tasks with projectId to ensure we capture all tasks
-      const allTasks = await this.tasksRepository.find({
-        relations: ['project'],
-      }).catch(() => []);
-      console.log(`[ProjectOverview] Found ${allTasks.length} total tasks`);
-
-      // Group tasks by projectId for easier lookup
-      const tasksByProjectId: { [key: string]: Task[] } = {};
-      allTasks.forEach((task) => {
-        if (task.projectId) {
-          if (!tasksByProjectId[task.projectId]) {
-            tasksByProjectId[task.projectId] = [];
-          }
-          tasksByProjectId[task.projectId].push(task);
-        }
-      });
+      // Optimization: Fetch only project count instead of all project entities
+      const projectCount = await this.projectsRepository.count().catch(() => 0);
       
-      console.log(`[ProjectOverview] Tasks grouped by project:`, Object.keys(tasksByProjectId).map(pid => ({
-        projectId: pid,
-        taskCount: tasksByProjectId[pid].length
-      })));
-
       const now = new Date();
       const months: { month: string; completed: number; total: number; isProjected?: boolean; isHighlighted?: boolean }[] = [];
       
@@ -276,62 +253,36 @@ export class DashboardService {
 
         if (!isProjected) {
           if (isCurrentMonth) {
-            // For current month: Show ALL tasks from ALL projects (regardless of creation date)
-            projects.forEach((project) => {
-              const projectTasks = tasksByProjectId[project.uid] || [];
-              total += projectTasks.length;
-              completed += projectTasks.filter(t => t.status === 'complete').length;
-            });
-            
-            // Also count standalone tasks (no projectId)
-            allTasks.forEach((task) => {
-              if (!task.projectId) {
-                total++;
-                if (task.status === 'complete') {
-                  completed++;
-                }
-              }
-            });
+            // For current month: Total of ALL tasks and ALL completed tasks
+            [total, completed] = await Promise.all([
+              this.tasksRepository.count(),
+              this.tasksRepository.count({ where: { status: TaskStatus.COMPLETE } })
+            ]);
             
             // If no tasks but projects exist, show at least 1 to indicate projects exist
-            if (total === 0 && projects.length > 0) {
+            if (total === 0 && projectCount > 0) {
               total = 1;
             }
           } else {
-            // For past months: Show tasks created or completed in that month
-            projects.forEach((project) => {
-              const projectTasks = tasksByProjectId[project.uid] || [];
-              projectTasks.forEach((task) => {
-                const taskCreatedDate = task.createdAt ? new Date(task.createdAt) : null;
-                const taskUpdatedDate = task.updatedAt ? new Date(task.updatedAt) : null;
-                
-                // Task was created in this month
-                if (taskCreatedDate && taskCreatedDate >= monthStart && taskCreatedDate <= monthEnd) {
-                  total++;
-                  if (task.status === 'complete') {
-                    completed++;
-                  }
-                }
-                // Task was completed in this month (even if created earlier)
-                else if (task.status === 'complete' && taskUpdatedDate && taskUpdatedDate >= monthStart && taskUpdatedDate <= monthEnd) {
-                  total++;
-                  completed++;
-                }
-              });
-            });
+            // For past months:
+            // Total = Created In Month OR (Complete AND Updated In Month)
+            // Completed = Complete AND (Created In Month OR Updated In Month)
             
-            // Count standalone tasks created/updated in this month
-            allTasks.forEach((task) => {
-              if (!task.projectId) {
-                const taskDate = task.createdAt || task.updatedAt || new Date();
-                if (taskDate >= monthStart && taskDate <= monthEnd) {
-                  total++;
-                  if (task.status === 'complete') {
-                    completed++;
-                  }
-                }
-              }
-            });
+            // Optimization: Use count queries instead of fetching entities
+            total = await this.tasksRepository.createQueryBuilder('task')
+              .where(new Brackets(qb => {
+                qb.where('task.createdAt BETWEEN :start AND :end', { start: monthStart, end: monthEnd })
+                  .orWhere('task.status = :status AND task.updatedAt BETWEEN :start AND :end', { status: TaskStatus.COMPLETE, start: monthStart, end: monthEnd });
+              }))
+              .getCount();
+
+            completed = await this.tasksRepository.createQueryBuilder('task')
+              .where('task.status = :status', { status: TaskStatus.COMPLETE })
+              .andWhere(new Brackets(qb => {
+                qb.where('task.createdAt BETWEEN :start AND :end', { start: monthStart, end: monthEnd })
+                  .orWhere('task.updatedAt BETWEEN :start AND :end', { start: monthStart, end: monthEnd });
+              }))
+              .getCount();
           }
         }
         
@@ -344,46 +295,6 @@ export class DashboardService {
         });
       }
 
-      // If no data at all but projects exist, ensure we show data
-      const hasAnyData = months.some(m => m.total > 0);
-      console.log(`[ProjectOverview] Has any data: ${hasAnyData}, Projects: ${projects.length}, Tasks: ${allTasks.length}`);
-      
-      // Final check: ensure current month has data if projects exist
-      if (projects.length > 0) {
-        const currentMonthKey = now.toLocaleDateString('en-US', { month: 'short' });
-        const currentMonthIndex = months.findIndex(m => m.month === currentMonthKey);
-        if (currentMonthIndex >= 0 && months[currentMonthIndex].total === 0) {
-          // Double-check: count all tasks one more time
-          let finalTotal = 0;
-          let finalCompleted = 0;
-          
-          projects.forEach((project) => {
-            const projectTasks = tasksByProjectId[project.uid] || [];
-            finalTotal += projectTasks.length;
-            finalCompleted += projectTasks.filter(t => t.status === 'complete').length;
-          });
-          
-          allTasks.forEach((task) => {
-            if (!task.projectId) {
-              finalTotal++;
-              if (task.status === 'complete') {
-                finalCompleted++;
-              }
-            }
-          });
-          
-          // If still no tasks, show at least 1 to indicate projects exist
-          if (finalTotal === 0) {
-            finalTotal = 1;
-          }
-          
-          months[currentMonthIndex].total = finalTotal;
-          months[currentMonthIndex].completed = finalCompleted;
-          console.log(`[ProjectOverview] Final current month data: ${finalTotal} total, ${finalCompleted} completed`);
-        }
-      }
-
-      console.log(`[ProjectOverview] Returning ${months.length} months of data:`, months.map(m => `${m.month}: ${m.total} total, ${m.completed} completed`));
       return months;
     } catch (error) {
       console.error('Error in getMonthlyProjectOverview:', error);
