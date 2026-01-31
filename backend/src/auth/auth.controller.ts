@@ -68,19 +68,23 @@ export class AuthController {
   }
 
   @Post('reset-password')
+  @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password' })
   @ApiResponse({ status: 200, description: 'Password reset successful' })
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @ApiResponse({ status: 429, description: 'Too many password reset attempts' })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto);
   }
 
   @Post('verify-email')
+  @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify email address' })
   @ApiResponse({ status: 200, description: 'Email verified' })
   @ApiResponse({ status: 400, description: 'Invalid token' })
+  @ApiResponse({ status: 429, description: 'Too many verification attempts' })
   async verifyEmail(@Body('token') token: string) {
     return this.authService.verifyEmail(token);
   }

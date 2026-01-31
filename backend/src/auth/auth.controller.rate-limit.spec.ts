@@ -5,6 +5,13 @@ import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { Reflector } from '@nestjs/core';
 
+// Mock bcrypt to avoid native binding errors during tests
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
+
 describe('AuthController Rate Limiting', () => {
   let controller: AuthController;
   let reflector: Reflector;
@@ -42,6 +49,18 @@ describe('AuthController Rate Limiting', () => {
 
   it('should have RateLimiterGuard on forgotPassword', () => {
     const guards = reflector.get<any[]>('__guards__', controller.forgotPassword);
+    expect(guards).toBeDefined();
+    expect(guards.some((guard) => guard === RateLimiterGuard)).toBe(true);
+  });
+
+  it('should have RateLimiterGuard on resetPassword', () => {
+    const guards = reflector.get<any[]>('__guards__', controller.resetPassword);
+    expect(guards).toBeDefined();
+    expect(guards.some((guard) => guard === RateLimiterGuard)).toBe(true);
+  });
+
+  it('should have RateLimiterGuard on verifyEmail', () => {
+    const guards = reflector.get<any[]>('__guards__', controller.verifyEmail);
     expect(guards).toBeDefined();
     expect(guards.some((guard) => guard === RateLimiterGuard)).toBe(true);
   });
