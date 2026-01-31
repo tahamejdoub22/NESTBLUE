@@ -11,6 +11,12 @@ import { Budget } from '../budgets/entities/budget.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { Repository } from 'typeorm';
 
+// Mock bcrypt to avoid native binding errors
+jest.mock('bcrypt', () => ({
+  hash: jest.fn().mockResolvedValue('hashed_password'),
+  compare: jest.fn().mockResolvedValue(true),
+}));
+
 describe('DashboardService', () => {
   let service: DashboardService;
   let tasksRepository: Repository<Task>;
