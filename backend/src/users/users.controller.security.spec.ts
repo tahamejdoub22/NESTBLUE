@@ -1,4 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { ForbiddenException, BadRequestException } from '@nestjs/common';

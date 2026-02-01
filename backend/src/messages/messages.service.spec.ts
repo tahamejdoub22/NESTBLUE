@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
 import { MessagesService } from './messages.service';
 import { UsersService } from '../users/users.service';
 import { getRepositoryToken } from '@nestjs/typeorm';

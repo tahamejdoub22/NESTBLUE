@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
 import { Repository } from 'typeorm';
 import { ProjectsService } from './projects.service';
 import { Project } from './entities/project.entity';
