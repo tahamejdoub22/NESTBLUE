@@ -1,3 +1,10 @@
+// Mock bcrypt before importing anything that uses it
+jest.mock('bcrypt', () => ({
+  hash: jest.fn().mockResolvedValue('hashed_password'),
+  compare: jest.fn().mockResolvedValue(true),
+  genSalt: jest.fn().mockResolvedValue('salt'),
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -68,6 +75,47 @@ describe('ProjectsService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('findOne with access control', () => {
+    const projectUid = 'proj-123';
+    const userId = 'user-123';
+
+    it('should allow owner to access project', async () => {
+      const project = { ...mockProject, ownerId: userId };
+      jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(project);
+
+      const result = await service.findOne(projectUid, userId);
+      expect(result).toEqual(project);
+    });
+
+    it('should allow member to access project', async () => {
+      const project = { ...mockProject, ownerId: 'other-user' };
+      const member = { projectUid, userId, role: ProjectMemberRole.MEMBER } as ProjectMember;
+
+      jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(project);
+      jest.spyOn(projectMembersRepository, 'findOne').mockResolvedValue(member);
+
+      const result = await service.findOne(projectUid, userId);
+      expect(result).toEqual(project);
+    });
+
+    it('should deny access if not owner and not member', async () => {
+      const project = { ...mockProject, ownerId: 'other-user' };
+
+      jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(project);
+      jest.spyOn(projectMembersRepository, 'findOne').mockResolvedValue(null);
+
+      await expect(service.findOne(projectUid, userId)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should work without access check (backward compatibility)', async () => {
+      const project = { ...mockProject, ownerId: 'other-user' };
+      jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(project);
+
+      const result = await service.findOne(projectUid);
+      expect(result).toEqual(project);
+    });
   });
 
   describe('inviteMembers', () => {

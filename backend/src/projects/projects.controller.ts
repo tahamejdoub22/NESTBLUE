@@ -90,9 +90,9 @@ export class ProjectsController {
 
   @Get(':uid')
   @ApiOperation({ summary: 'Get project by UID' })
-  async findOne(@Param('uid') uid: string) {
+  async findOne(@Param('uid') uid: string, @Request() req) {
     try {
-      return await this.projectsService.findOne(uid);
+      return await this.projectsService.findOne(uid, req.user.userId);
     } catch (error) {
       console.error(`Error in projects.findOne for UID ${uid}:`, error);
       throw error;
@@ -101,8 +101,9 @@ export class ProjectsController {
 
   @Get(':uid/tasks')
   @ApiOperation({ summary: 'Get tasks by project' })
-  async getTasksByProject(@Param('uid') uid: string) {
+  async getTasksByProject(@Param('uid') uid: string, @Request() req) {
     try {
+      await this.projectsService.findOne(uid, req.user.userId);
       const tasks = await this.tasksService.findAll(uid);
       return tasks.map((task) => ({
         uid: task.uid,
@@ -148,8 +149,8 @@ export class ProjectsController {
   // Team Members
   @Get(':uid/members')
   @ApiOperation({ summary: 'Get project team members' })
-  getMembers(@Param('uid') uid: string) {
-    return this.projectsService.getProjectMembers(uid);
+  getMembers(@Param('uid') uid: string, @Request() req) {
+    return this.projectsService.getProjectMembers(uid, req.user.userId);
   }
 
   @Post(':uid/members/invite')

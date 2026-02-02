@@ -56,7 +56,7 @@ export class ProjectsService {
     return projects;
   }
 
-  async findOne(uid: string): Promise<Project> {
+  async findOne(uid: string, checkAccessForUserId?: string): Promise<Project> {
     try {
       const project = await this.projectsRepository.findOne({
         where: { uid },
@@ -66,6 +66,18 @@ export class ProjectsService {
 
       if (!project) {
         throw new NotFoundException(`Project with UID ${uid} not found`);
+      }
+
+      if (checkAccessForUserId) {
+        if (project.ownerId !== checkAccessForUserId) {
+          const member = await this.projectMembersRepository.findOne({
+            where: { projectUid: uid, userId: checkAccessForUserId },
+          });
+
+          if (!member) {
+            throw new ForbiddenException('You do not have access to this project');
+          }
+        }
       }
 
       return project;
@@ -100,8 +112,8 @@ export class ProjectsService {
   }
 
   // Team Members
-  async getProjectMembers(projectUid: string): Promise<ProjectMember[]> {
-    await this.findOne(projectUid); // Verify project exists
+  async getProjectMembers(projectUid: string, checkAccessForUserId?: string): Promise<ProjectMember[]> {
+    await this.findOne(projectUid, checkAccessForUserId); // Verify project exists and check access
     return this.projectMembersRepository.find({
       where: { projectUid },
       relations: ['user', 'invitedBy'],
