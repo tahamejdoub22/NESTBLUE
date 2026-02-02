@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Project } from './entities/project.entity';
 import { ProjectMember, ProjectMemberRole } from './entities/project-member.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -127,34 +127,66 @@ export class ProjectsService {
 
     await this.validateInvitePermissions(projectUid, inviterId);
 
-    const results: ProjectMember[] = [];
+    // Performance Optimization: Batch database operations to prevent N+1 queries.
+    // Reduces query count from 3N to 3 queries regardless of user count.
+    const userIds = [...new Set(inviteDto.userIds)]; // Deduplicate
     const errors: string[] = [];
 
-    for (const userId of inviteDto.userIds) {
-      try {
-        const member = await this.addMemberToProject(
-          projectUid,
-          userId,
-          inviteDto.role || ProjectMemberRole.MEMBER,
-          inviterId,
-        );
-        results.push(member);
-      } catch (error: any) {
-        // Skip if already member, continue with others
-        if (error instanceof BadRequestException && error.message.includes('already a member')) {
-          continue;
-        }
-        // Collect errors but continue processing other users
-        errors.push(`Failed to invite user ${userId}: ${error.message || error}`);
+    // 1. Fetch valid users in bulk
+    const validUsers = await this.usersService.findByIds(userIds);
+    const validUserIds = new Set(validUsers.map((u) => u.id));
+
+    // Identify invalid users
+    for (const id of userIds) {
+      if (!validUserIds.has(id)) {
+        errors.push(`Failed to invite user ${id}: User with ID ${id} not found`);
       }
     }
 
-    // If no users were successfully invited and there were errors, throw
-    if (results.length === 0 && errors.length > 0) {
-      throw new BadRequestException(`Failed to invite any members: ${errors.join('; ')}`);
+    // 2. Check existing members in bulk
+    const existingMembers = await this.projectMembersRepository.find({
+      where: {
+        projectUid,
+        userId: In(Array.from(validUserIds)),
+      },
+      select: ['userId'],
+    });
+
+    const existingMemberIds = new Set(existingMembers.map((m) => m.userId));
+    const newMembersToCreate: ProjectMember[] = [];
+
+    for (const user of validUsers) {
+      if (existingMemberIds.has(user.id)) {
+        continue;
+      }
+      newMembersToCreate.push(
+        this.projectMembersRepository.create({
+          projectUid,
+          userId: user.id,
+          role: inviteDto.role || ProjectMemberRole.MEMBER,
+          invitedById: inviterId,
+        }),
+      );
     }
 
-    return results;
+    if (newMembersToCreate.length === 0) {
+      if (errors.length > 0) {
+        throw new BadRequestException(
+          `Failed to invite any members: ${errors.join('; ')}`,
+        );
+      }
+      return [];
+    }
+
+    // 3. Bulk insert new members
+    // We use save which handles insertion of array
+    try {
+      const results = await this.projectMembersRepository.save(newMembersToCreate);
+      return results;
+    } catch (error: any) {
+      // In case of any database error during bulk save
+      throw new BadRequestException(`Failed to invite members: ${error.message}`);
+    }
   }
 
   private async validateInvitePermissions(projectUid: string, inviterId: string): Promise<void> {
