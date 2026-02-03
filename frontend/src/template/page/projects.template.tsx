@@ -6,6 +6,7 @@ import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Badge } from "@/components/atoms/badge";
 import { Progress } from "@/components/atoms/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { Input } from "@/components/atoms/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/select";
 import { 
@@ -20,11 +21,9 @@ import {
   Grid3x3,
   List,
   TrendingUp,
-  TrendingDown,
   AlertCircle,
   CheckCircle2,
   Clock,
-  MoreVertical,
   Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -237,22 +236,34 @@ export function ProjectsPageTemplate(props: ProjectsPageTemplateProps) {
             </SelectContent>
           </Select>
           <div className="flex gap-1 border border-border/40 rounded-lg p-1 bg-card">
-            <Button
-              variant={viewMode === "grid" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("grid")}
-              className="h-7 px-2"
-            >
-              <Grid3x3 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-              className="h-7 px-2"
-            >
-              <List className="h-4 w-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={viewMode === "grid" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("grid")}
+                  className="h-7 px-2"
+                  aria-label="Switch to grid view"
+                >
+                  <Grid3x3 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Grid view</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={viewMode === "list" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("list")}
+                  className="h-7 px-2"
+                  aria-label="Switch to list view"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>List view</TooltipContent>
+            </Tooltip>
           </div>
         </motion.div>
 
@@ -320,17 +331,23 @@ export function ProjectsPageTemplate(props: ProjectsPageTemplateProps) {
                                 {project.status}
                               </Badge>
                               {onEditProject && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onEditProject(project);
-                                  }}
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEditProject(project);
+                                      }}
+                                      aria-label={`Edit ${project.name}`}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Edit project</TooltipContent>
+                                </Tooltip>
                               )}
                             </div>
                           </div>
@@ -451,17 +468,23 @@ export function ProjectsPageTemplate(props: ProjectsPageTemplateProps) {
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {onEditProject && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEditProject(project);
-                              }}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditProject(project);
+                                  }}
+                                  aria-label={`Edit ${project.name}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Edit project</TooltipContent>
+                            </Tooltip>
                           )}
                           <Progress value={project.progress} className="w-24 h-2" />
                           <ArrowRight className="h-4 w-4 text-muted-foreground" />
