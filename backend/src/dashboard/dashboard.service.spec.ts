@@ -3,6 +3,7 @@ import { DashboardService } from './dashboard.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Project } from '../projects/entities/project.entity';
 import { Task } from '../tasks/entities/task.entity';
+import { Comment } from '../tasks/entities/comment.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
 import { User } from '../users/entities/user.entity';
 import { Cost } from '../costs/entities/cost.entity';
@@ -10,6 +11,8 @@ import { Expense } from '../expenses/entities/expense.entity';
 import { Budget } from '../budgets/entities/budget.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { Repository } from 'typeorm';
+
+jest.mock('bcrypt', () => ({}));
 
 describe('DashboardService', () => {
   let service: DashboardService;
@@ -37,9 +40,21 @@ describe('DashboardService', () => {
     getRawMany: jest.fn(),
   };
 
+  // Mock for Comment aggregation
+  const mockCommentQueryBuilder = {
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn(),
+  };
+
   const mockTasksRepository = {
     find: jest.fn(),
     createQueryBuilder: jest.fn().mockReturnValue(mockTaskQueryBuilder),
+  };
+
+  const mockCommentsRepository = {
+    createQueryBuilder: jest.fn().mockReturnValue(mockCommentQueryBuilder),
   };
 
   const mockSprintsRepository = {
@@ -79,10 +94,12 @@ describe('DashboardService', () => {
     // Reset query builder mocks
     mockAggregationQueryBuilder.getRawMany.mockReset();
     mockTaskQueryBuilder.getRawMany.mockReset();
+    mockCommentQueryBuilder.getRawMany.mockReset();
 
     // Set default returns for aggregation to avoid "undefined" errors in other tests
     mockAggregationQueryBuilder.getRawMany.mockResolvedValue([]);
     mockTaskQueryBuilder.getRawMany.mockResolvedValue([]);
+    mockCommentQueryBuilder.getRawMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -92,6 +109,10 @@ describe('DashboardService', () => {
           useValue: mockProjectsRepository,
         },
         { provide: getRepositoryToken(Task), useValue: mockTasksRepository },
+        {
+          provide: getRepositoryToken(Comment),
+          useValue: mockCommentsRepository,
+        },
         {
           provide: getRepositoryToken(Sprint),
           useValue: mockSprintsRepository,
@@ -251,5 +272,48 @@ describe('DashboardService', () => {
     expect(mockBudgetsRepository.createQueryBuilder).toHaveBeenCalled();
     expect(mockCostsRepository.createQueryBuilder).toHaveBeenCalled();
     expect(mockExpensesRepository.createQueryBuilder).toHaveBeenCalled();
+  });
+
+  it('should use createQueryBuilder for user contribution comment counts', async () => {
+    // Setup data
+    const teamMembers = [{ id: 'user-1', name: 'User 1' }];
+    // Dummy tasks
+    const tasks = [
+      {
+        uid: 'task-1',
+        assigneeIds: [],
+        createdById: 'user-2',
+        status: 'todo',
+      },
+    ];
+
+    // Mock responses
+    mockRepository.find.mockResolvedValue(teamMembers); // Users repository
+    mockTasksRepository.find.mockResolvedValue(tasks);
+    mockSprintsRepository.find.mockResolvedValue([]);
+    mockProjectsRepository.find.mockResolvedValue([]);
+
+    // Mock comment aggregation
+    mockCommentQueryBuilder.getRawMany.mockResolvedValue([
+      { authorId: 'user-1', count: '42' },
+    ]);
+
+    mockCostsRepository.find.mockResolvedValue([]);
+    mockExpensesRepository.find.mockResolvedValue([]);
+
+    const result = await service.getDashboardData('user-1');
+
+    // Verify comment query
+    expect(mockCommentsRepository.createQueryBuilder).toHaveBeenCalled();
+    expect(mockCommentQueryBuilder.groupBy).toHaveBeenCalledWith(
+      'comment.authorId',
+    );
+
+    // Verify result contains correct comment count
+    const userContribution = result.userContributions.find(
+      (u) => u.userId === 'user-1',
+    );
+    expect(userContribution).toBeDefined();
+    expect(userContribution.commentsAdded).toBe(42);
   });
 });
