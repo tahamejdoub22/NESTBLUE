@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, In } from "typeorm";
+import { Repository } from "typeorm";
 import { Project } from "./entities/project.entity";
 import {
   ProjectMember,
@@ -67,7 +67,7 @@ export class ProjectsService {
     return projects;
   }
 
-  async findOne(uid: string): Promise<Project> {
+  async findOne(uid: string, checkAccessForUserId?: string): Promise<Project> {
     try {
       const project = await this.projectsRepository.findOne({
         where: { uid },
@@ -79,10 +79,27 @@ export class ProjectsService {
         throw new NotFoundException(`Project with UID ${uid} not found`);
       }
 
+      if (checkAccessForUserId) {
+        if (project.ownerId !== checkAccessForUserId) {
+          const member = await this.projectMembersRepository.findOne({
+            where: { projectUid: uid, userId: checkAccessForUserId },
+          });
+
+          if (!member) {
+            throw new ForbiddenException(
+              "You do not have permission to access this project",
+            );
+          }
+        }
+      }
+
       return project;
     } catch (error) {
       console.error(`Error in ProjectsService.findOne for UID ${uid}:`, error);
-      if (error instanceof NotFoundException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       throw error;
@@ -119,8 +136,11 @@ export class ProjectsService {
   }
 
   // Team Members
-  async getProjectMembers(projectUid: string): Promise<ProjectMember[]> {
-    await this.findOne(projectUid); // Verify project exists
+  async getProjectMembers(
+    projectUid: string,
+    checkAccessForUserId?: string,
+  ): Promise<ProjectMember[]> {
+    await this.findOne(projectUid, checkAccessForUserId); // Verify project exists and check access
     return this.projectMembersRepository.find({
       where: { projectUid },
       relations: ["user", "invitedBy"],
@@ -214,22 +234,28 @@ export class ProjectsService {
       throw new BadRequestException("At least one user ID is required");
     }
 
-    // Verify project and permissions (ONCE)
-    const project = await this.findOne(projectUid);
+    const results: ProjectMember[] = [];
+    const errors: string[] = [];
 
-    if (project.ownerId !== inviterId) {
-      const inviterMember = await this.projectMembersRepository.findOne({
-        where: { projectUid, userId: inviterId },
-      });
-
-      if (
-        !inviterMember ||
-        ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(
-          inviterMember.role,
-        )
-      ) {
-        throw new ForbiddenException(
-          "You do not have permission to invite members",
+    for (const userId of inviteDto.userIds) {
+      try {
+        const member = await this.inviteMember(
+          projectUid,
+          { userId, role: inviteDto.role },
+          inviterId,
+        );
+        results.push(member);
+      } catch (error: any) {
+        // Skip if already member, continue with others
+        if (
+          error instanceof BadRequestException &&
+          error.message.includes("already a member")
+        ) {
+          continue;
+        }
+        // Collect errors but continue processing other users
+        errors.push(
+          `Failed to invite user ${userId}: ${error.message || error}`,
         );
       }
 
@@ -298,7 +324,8 @@ export class ProjectsService {
       );
     }
 
-    if (errors.length > 0) {
+    // If no users were successfully invited and there were errors, throw
+    if (results.length === 0 && errors.length > 0) {
       throw new BadRequestException(
         `Failed to invite any members: ${errors.join("; ")}`,
       );
