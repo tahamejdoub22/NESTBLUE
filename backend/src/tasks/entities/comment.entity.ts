@@ -4,37 +4,35 @@ import {
   ManyToOne,
   JoinColumn,
   PrimaryGeneratedColumn,
-} from 'typeorm';
-import { Task } from './task.entity';
-import { User } from '../../users/entities/user.entity';
+} from "typeorm";
+import { Task } from "./task.entity";
+import { User } from "../../users/entities/user.entity";
 
-@Entity('comments')
+@Entity("comments")
 export class Comment {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: "text" })
   text: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: "uuid" })
   authorId: string;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'authorId' })
+  @JoinColumn({ name: "authorId" })
   author: User;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: "varchar", length: 50 })
   taskUid: string;
 
-  @ManyToOne(() => Task, (task) => task.comments, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'taskUid', referencedColumnName: 'uid' })
+  @ManyToOne(() => Task, (task) => task.comments, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "taskUid", referencedColumnName: "uid" })
   task: Task;
 
-  @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP" })
   createdAt: Date;
 
-  @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP" })
   updatedAt: Date;
 }
-
-
