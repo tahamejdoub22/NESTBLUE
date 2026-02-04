@@ -56,7 +56,7 @@ export class ProjectsService {
     return projects;
   }
 
-  async findOne(uid: string): Promise<Project> {
+  async findOne(uid: string, checkAccessForUserId?: string): Promise<Project> {
     try {
       const project = await this.projectsRepository.findOne({
         where: { uid },
@@ -66,6 +66,22 @@ export class ProjectsService {
 
       if (!project) {
         throw new NotFoundException(`Project with UID ${uid} not found`);
+      }
+
+      if (checkAccessForUserId) {
+        // Allow if owner
+        if (project.ownerId === checkAccessForUserId) {
+          return project;
+        }
+
+        // Allow if member
+        const member = await this.projectMembersRepository.findOne({
+          where: { projectUid: uid, userId: checkAccessForUserId },
+        });
+
+        if (!member) {
+          throw new ForbiddenException('Access denied');
+        }
       }
 
       return project;
