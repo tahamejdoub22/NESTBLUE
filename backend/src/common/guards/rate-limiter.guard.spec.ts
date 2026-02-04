@@ -35,7 +35,12 @@ describe('RateLimiterGuard', () => {
       guard.canActivate(mockContext);
     }
 
-    expect(() => guard.canActivate(mockContext)).toThrow(HttpException);
+    expect(() => guard.canActivate(mockContext)).toThrow(
+      new HttpException(
+        'Too many requests. Please try again later.',
+        429,
+      ),
+    );
   });
 
   it('should track different IPs separately', () => {

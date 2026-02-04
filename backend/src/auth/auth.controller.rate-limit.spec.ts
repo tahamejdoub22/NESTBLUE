@@ -29,20 +29,20 @@ describe('AuthController Rate Limiting', () => {
   });
 
   it('should have RateLimiterGuard on login', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.login);
+    const guards = reflector.get('__guards__', controller.login);
     expect(guards).toBeDefined();
-    expect(guards.some((guard) => guard === RateLimiterGuard)).toBe(true);
+    expect(guards).toContain(RateLimiterGuard);
   });
 
   it('should have RateLimiterGuard on register', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.register);
+    const guards = reflector.get('__guards__', controller.register);
     expect(guards).toBeDefined();
-    expect(guards.some((guard) => guard === RateLimiterGuard)).toBe(true);
+    expect(guards).toContain(RateLimiterGuard);
   });
 
   it('should have RateLimiterGuard on forgotPassword', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.forgotPassword);
+    const guards = reflector.get('__guards__', controller.forgotPassword);
     expect(guards).toBeDefined();
-    expect(guards.some((guard) => guard === RateLimiterGuard)).toBe(true);
+    expect(guards).toContain(RateLimiterGuard);
   });
 });
