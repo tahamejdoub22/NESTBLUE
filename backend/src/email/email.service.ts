@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as nodemailer from "nodemailer";
 
 @Injectable()
 export class EmailService {
@@ -12,17 +12,19 @@ export class EmailService {
   }
 
   private createTransporter() {
-    const host = this.configService.get<string>('SMTP_HOST');
-    const port = this.configService.get<number>('SMTP_PORT');
-    const user = this.configService.get<string>('SMTP_USER');
-    const pass = this.configService.get<string>('SMTP_PASSWORD');
+    const host = this.configService.get<string>("SMTP_HOST");
+    const port = this.configService.get<number>("SMTP_PORT");
+    const user = this.configService.get<string>("SMTP_USER");
+    const pass = this.configService.get<string>("SMTP_PASSWORD");
 
     if (!host || !user || !pass) {
-      this.logger.warn('Email service not configured. Emails will not be sent.');
+      this.logger.warn(
+        "Email service not configured. Emails will not be sent.",
+      );
       return;
     }
 
-    const secure = this.configService.get<string>('SMTP_SECURE') === 'true';
+    const secure = this.configService.get<string>("SMTP_SECURE") === "true";
 
     this.transporter = nodemailer.createTransport({
       host,
@@ -44,17 +46,17 @@ export class EmailService {
     }
 
     const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ||
-      this.configService.get<string>('CORS_ORIGIN') ||
-      'http://localhost:3000';
+      this.configService.get<string>("FRONTEND_URL") ||
+      this.configService.get<string>("CORS_ORIGIN") ||
+      "http://localhost:3000";
     const resetUrl = `${frontendUrl}/auth/reset-password?token=${token}`;
 
     const mailOptions = {
       from:
-        this.configService.get<string>('SMTP_FROM') ||
+        this.configService.get<string>("SMTP_FROM") ||
         '"No Reply" <noreply@example.com>',
       to,
-      subject: 'Password Reset Request',
+      subject: "Password Reset Request",
       html: `
           <h1>Password Reset</h1>
           <p>You requested a password reset. Click the link below to reset your password:</p>
@@ -69,7 +71,7 @@ export class EmailService {
     } catch (error) {
       this.logger.error(`Failed to send email to ${to}`, error.stack);
       // Fallback for dev if email fails
-      if (this.configService.get('NODE_ENV') === 'development') {
+      if (this.configService.get("NODE_ENV") === "development") {
         this.logger.debug(
           `[FALLBACK] Password reset token for ${to}: ${token}`,
         );
