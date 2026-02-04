@@ -171,10 +171,17 @@ export class ProjectsService {
         "You do not have permission to invite members",
       );
     }
+  }
 
+  private async addMemberToProject(
+    projectUid: string,
+    userId: string,
+    role: ProjectMemberRole,
+    inviterId: string,
+  ): Promise<ProjectMember> {
     // Check if user exists
     try {
-      await this.usersService.findOne(inviteDto.userId);
+      await this.usersService.findOne(userId);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw new BadRequestException(
@@ -186,19 +193,16 @@ export class ProjectsService {
 
     // Check if already a member
     const existing = await this.projectMembersRepository.findOne({
-      where: { projectUid, userId: inviteDto.userId },
+      where: { projectUid, userId },
     });
 
     if (existing) {
       throw new BadRequestException("User is already a member of this project");
     }
 
-    // Use the role from DTO (already transformed) or default to MEMBER
-    const role = inviteDto.role || ProjectMemberRole.MEMBER;
-
     const member = this.projectMembersRepository.create({
       projectUid,
-      userId: inviteDto.userId,
+      userId,
       role,
       invitedById: inviterId,
     });
@@ -254,6 +258,70 @@ export class ProjectsService {
           `Failed to invite user ${userId}: ${error.message || error}`,
         );
       }
+
+      const member = this.projectMembersRepository.create({
+        projectUid,
+        userId,
+        role: inviteDto.role || ProjectMemberRole.MEMBER,
+        invitedById: inviterId,
+      });
+      newMembersToSave.push(member);
+    }
+
+    // 6. Bulk Save
+    if (newMembersToSave.length > 0) {
+      const savedMembers =
+        await this.projectMembersRepository.save(newMembersToSave);
+      results.push(...savedMembers);
+    }
+
+    // Fetch all users to be invited (ONCE)
+    const foundUsers = await this.usersService.findByIds(inviteDto.userIds);
+    const foundUserIds = foundUsers.map((u) => u.id);
+    const missingUserIds = inviteDto.userIds.filter(
+      (id) => !foundUserIds.includes(id),
+    );
+
+    // Fetch existing members for these users (ONCE)
+    let existingMemberUserIds: string[] = [];
+    if (foundUserIds.length > 0) {
+      const existingMembers = await this.projectMembersRepository.find({
+        where: {
+          projectUid,
+          userId: In(foundUserIds),
+        },
+      });
+      existingMemberUserIds = existingMembers.map((m) => m.userId);
+    }
+
+    // Determine who to invite
+    const usersToInvite = foundUsers.filter(
+      (u) => !existingMemberUserIds.includes(u.id),
+    );
+
+    // Bulk insert (ONCE)
+    if (usersToInvite.length > 0) {
+      const newMembers = usersToInvite.map((user) =>
+        this.projectMembersRepository.create({
+          projectUid,
+          userId: user.id,
+          role: inviteDto.role || ProjectMemberRole.MEMBER,
+          invitedById: inviterId,
+        }),
+      );
+
+      // Save all at once
+      await this.projectMembersRepository.save(newMembers);
+
+      return newMembers;
+    }
+
+    // If no users were successfully invited, check for errors
+    const errors: string[] = [];
+    if (missingUserIds.length > 0) {
+      missingUserIds.forEach((id) =>
+        errors.push(`Failed to invite user ${id}: User with ID ${id} not found`),
+      );
     }
 
     // If no users were successfully invited and there were errors, throw
@@ -263,7 +331,7 @@ export class ProjectsService {
       );
     }
 
-    return results;
+    return [];
   }
 
   async removeMember(

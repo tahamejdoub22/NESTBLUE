@@ -1,5 +1,5 @@
-import { IsString, IsEnum, IsOptional, IsBoolean } from 'class-validator';
-import { NotificationType } from '../entities/notification.entity';
+import { IsString, IsEnum, IsOptional, IsBoolean } from "class-validator";
+import { NotificationType } from "../entities/notification.entity";
 
 export class CreateNotificationDto {
   @IsString()
@@ -38,5 +38,3 @@ export class CreateNotificationDto {
   @IsBoolean()
   read?: boolean;
 }
-
-
