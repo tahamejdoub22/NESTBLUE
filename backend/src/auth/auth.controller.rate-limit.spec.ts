@@ -13,9 +13,14 @@ describe('AuthController Rate Limiting', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
-        { provide: AuthService, useValue: {} },
-        { provide: UsersService, useValue: {} },
-        Reflector,
+        {
+          provide: AuthService,
+          useValue: {},
+        },
+        {
+          provide: UsersService,
+          useValue: {},
+        },
       ],
     }).compile();
 

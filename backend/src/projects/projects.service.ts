@@ -110,58 +110,14 @@ export class ProjectsService {
   }
 
   async inviteMember(projectUid: string, inviteDto: InviteMemberDto, inviterId: string): Promise<ProjectMember> {
-    const project = await this.findOne(projectUid);
-    
-    // Check if inviter is owner or admin
-    const inviterMember = await this.projectMembersRepository.findOne({
-      where: { projectUid, userId: inviterId },
-    });
-    
-    if (project.ownerId !== inviterId && (!inviterMember || ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(inviterMember.role))) {
-      throw new ForbiddenException('You do not have permission to invite members');
-    }
+    await this.validateInvitePermissions(projectUid, inviterId);
 
-    // Check if user exists
-    try {
-      await this.usersService.findOne(inviteDto.userId);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw new BadRequestException(`User with ID ${inviteDto.userId} not found`);
-      }
-      throw error;
-    }
-
-    // Check if already a member
-    const existing = await this.projectMembersRepository.findOne({
-      where: { projectUid, userId: inviteDto.userId },
-    });
-
-    if (existing) {
-      throw new BadRequestException('User is already a member of this project');
-    }
-
-    // Use the role from DTO (already transformed) or default to MEMBER
-    const role = inviteDto.role || ProjectMemberRole.MEMBER;
-
-    const member = this.projectMembersRepository.create({
+    return this.addMemberToProject(
       projectUid,
-      userId: inviteDto.userId,
-      role,
-      invitedById: inviterId,
-    });
-
-    try {
-      return await this.projectMembersRepository.save(member);
-    } catch (error: any) {
-      // Handle database constraint errors
-      if (error.code === '23505') { // Unique constraint violation
-        throw new BadRequestException('User is already a member of this project');
-      }
-      if (error.code === '23503') { // Foreign key constraint violation
-        throw new BadRequestException('Invalid project or user reference');
-      }
-      throw error;
-    }
+      inviteDto.userId,
+      inviteDto.role || ProjectMemberRole.MEMBER,
+      inviterId,
+    );
   }
 
   async inviteMembers(projectUid: string, inviteDto: InviteMembersDto, inviterId: string): Promise<ProjectMember[]> {
@@ -169,12 +125,19 @@ export class ProjectsService {
       throw new BadRequestException('At least one user ID is required');
     }
 
+    await this.validateInvitePermissions(projectUid, inviterId);
+
     const results: ProjectMember[] = [];
     const errors: string[] = [];
-    
+
     for (const userId of inviteDto.userIds) {
       try {
-        const member = await this.inviteMember(projectUid, { userId, role: inviteDto.role }, inviterId);
+        const member = await this.addMemberToProject(
+          projectUid,
+          userId,
+          inviteDto.role || ProjectMemberRole.MEMBER,
+          inviterId,
+        );
         results.push(member);
       } catch (error: any) {
         // Skip if already member, continue with others
@@ -192,6 +155,75 @@ export class ProjectsService {
     }
 
     return results;
+  }
+
+  private async validateInvitePermissions(projectUid: string, inviterId: string): Promise<void> {
+    const project = await this.findOne(projectUid);
+
+    // If owner, always allowed
+    if (project.ownerId === inviterId) {
+      return;
+    }
+
+    // Check if inviter is owner or admin
+    const inviterMember = await this.projectMembersRepository.findOne({
+      where: { projectUid, userId: inviterId },
+    });
+
+    if (
+      !inviterMember ||
+      ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(inviterMember.role)
+    ) {
+      throw new ForbiddenException('You do not have permission to invite members');
+    }
+  }
+
+  private async addMemberToProject(
+    projectUid: string,
+    userId: string,
+    role: ProjectMemberRole,
+    inviterId: string,
+  ): Promise<ProjectMember> {
+    // Check if user exists
+    try {
+      await this.usersService.findOne(userId);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw new BadRequestException(`User with ID ${userId} not found`);
+      }
+      throw error;
+    }
+
+    // Check if already a member
+    const existing = await this.projectMembersRepository.findOne({
+      where: { projectUid, userId },
+    });
+
+    if (existing) {
+      throw new BadRequestException('User is already a member of this project');
+    }
+
+    const member = this.projectMembersRepository.create({
+      projectUid,
+      userId,
+      role,
+      invitedById: inviterId,
+    });
+
+    try {
+      return await this.projectMembersRepository.save(member);
+    } catch (error: any) {
+      // Handle database constraint errors
+      if (error.code === '23505') {
+        // Unique constraint violation
+        throw new BadRequestException('User is already a member of this project');
+      }
+      if (error.code === '23503') {
+        // Foreign key constraint violation
+        throw new BadRequestException('Invalid project or user reference');
+      }
+      throw error;
+    }
   }
 
   async removeMember(projectUid: string, userId: string, removerId: string): Promise<void> {

@@ -43,6 +43,7 @@ export class AuthController {
   @ApiOperation({ summary: 'User registration' })
   @ApiResponse({ status: 201, description: 'Registration successful' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
+  @ApiResponse({ status: 429, description: 'Too many registration attempts' })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
@@ -61,6 +62,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset' })
   @ApiResponse({ status: 200, description: 'Password reset email sent' })
+  @ApiResponse({ status: 429, description: 'Too many password reset attempts' })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     return this.authService.forgotPassword(forgotPasswordDto);
   }
