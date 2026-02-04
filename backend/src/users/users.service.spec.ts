@@ -1,10 +1,19 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { UsersService } from './users.service';
-import { User } from './entities/user.entity';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Test, TestingModule } from "@nestjs/testing";
+import { UsersService } from "./users.service";
+import { User } from "./entities/user.entity";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 
-describe('UsersService', () => {
+const mockUsersRepository = {
+  create: jest.fn(),
+  save: jest.fn(),
+  find: jest.fn(),
+  findOne: jest.fn(),
+  update: jest.fn(),
+  remove: jest.fn(),
+};
+
+describe("UsersService", () => {
   let service: UsersService;
   let repository: Repository<User>;
 
@@ -14,7 +23,7 @@ describe('UsersService', () => {
         UsersService,
         {
           provide: getRepositoryToken(User),
-          useClass: Repository,
+          useValue: mockUsersRepository,
         },
       ],
     }).compile();
@@ -23,7 +32,11 @@ describe('UsersService', () => {
     repository = module.get<Repository<User>>(getRepositoryToken(User));
   });
 
-  it('should be defined', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
