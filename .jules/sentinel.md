@@ -3,7 +3,7 @@
 **Learning:** Security controls assumed to be present (like rate limiting on auth) must be explicitly verified in the code.
 **Prevention:** Always verify the existence and application of security guards during security reviews.
 
-## 2026-01-27 - Missing Rate Limiting on Sensitive Auth Endpoints
-**Vulnerability:** Rate limiting was only applied to `login`, leaving `register`, `forgot-password`, `reset-password`, and `verify-email` exposed to abuse.
-**Learning:** Applying security controls to one endpoint (like login) doesn't automatically protect related sensitive flows.
-**Prevention:** Audit all authentication and account management endpoints to ensure consistent application of security guards.
+## 2026-01-22 - IDOR in MessagesService
+**Vulnerability:** The `MessagesService` exposed conversation data and operations (update/delete) via ID without checking if the requesting user was a participant.
+**Learning:** Checking for authentication (JWT) is not enough; authorization (checking access to specific resources) is critical.
+**Prevention:** Implement resource-level access control checks (e.g., `checkConversationAccess`) at the beginning of service methods.

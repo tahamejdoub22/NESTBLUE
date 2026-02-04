@@ -1,13 +1,21 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Project } from './entities/project.entity';
-import { ProjectMember, ProjectMemberRole } from './entities/project-member.entity';
-import { CreateProjectDto } from './dto/create-project.dto';
-import { UpdateProjectDto } from './dto/update-project.dto';
-import { InviteMemberDto, InviteMembersDto } from './dto/invite-member.dto';
-import { UsersService } from '../users/users.service';
-import { v4 as uuidv4 } from 'uuid';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Project } from "./entities/project.entity";
+import {
+  ProjectMember,
+  ProjectMemberRole,
+} from "./entities/project-member.entity";
+import { CreateProjectDto } from "./dto/create-project.dto";
+import { UpdateProjectDto } from "./dto/update-project.dto";
+import { InviteMemberDto, InviteMembersDto } from "./dto/invite-member.dto";
+import { UsersService } from "../users/users.service";
+import { v4 as uuidv4 } from "uuid";
 
 @Injectable()
 export class ProjectsService {
@@ -19,7 +27,10 @@ export class ProjectsService {
     private usersService: UsersService,
   ) {}
 
-  async create(createProjectDto: CreateProjectDto, ownerId: string): Promise<Project> {
+  async create(
+    createProjectDto: CreateProjectDto,
+    ownerId: string,
+  ): Promise<Project> {
     const project = this.projectsRepository.create({
       ...createProjectDto,
       uid: this.generateUid(),
@@ -34,11 +45,11 @@ export class ProjectsService {
       const where = ownerId ? { ownerId } : {};
       return await this.projectsRepository.find({
         where,
-        relations: ['owner', 'teamSpace'],
-        order: { createdAt: 'DESC' },
+        relations: ["owner", "teamSpace"],
+        order: { createdAt: "DESC" },
       });
     } catch (error) {
-      console.error('Error in ProjectsService.findAll:', error);
+      console.error("Error in ProjectsService.findAll:", error);
       throw error;
     }
   }
@@ -47,10 +58,10 @@ export class ProjectsService {
     const where = ownerId ? { ownerId } : {};
     const projects = await this.projectsRepository.find({
       where,
-      relations: ['owner', 'tasks'],
-      order: { createdAt: 'DESC' },
+      relations: ["owner", "tasks"],
+      order: { createdAt: "DESC" },
     });
-    
+
     // For each project, check if it has team spaces
     // This is a simplified approach - in production you might want to use a join query
     return projects;
@@ -60,8 +71,8 @@ export class ProjectsService {
     try {
       const project = await this.projectsRepository.findOne({
         where: { uid },
-        relations: ['owner', 'teamSpace'],
-        order: { createdAt: 'DESC' },
+        relations: ["owner", "teamSpace"],
+        order: { createdAt: "DESC" },
       });
 
       if (!project) {
@@ -78,11 +89,17 @@ export class ProjectsService {
     }
   }
 
-  async update(uid: string, updateProjectDto: UpdateProjectDto, userId: string): Promise<Project> {
+  async update(
+    uid: string,
+    updateProjectDto: UpdateProjectDto,
+    userId: string,
+  ): Promise<Project> {
     const project = await this.findOne(uid);
-    
+
     if (project.ownerId !== userId) {
-      throw new ForbiddenException('You do not have permission to update this project');
+      throw new ForbiddenException(
+        "You do not have permission to update this project",
+      );
     }
 
     Object.assign(project, updateProjectDto);
@@ -91,9 +108,11 @@ export class ProjectsService {
 
   async remove(uid: string, userId: string): Promise<void> {
     const project = await this.findOne(uid);
-    
+
     if (project.ownerId !== userId) {
-      throw new ForbiddenException('You do not have permission to delete this project');
+      throw new ForbiddenException(
+        "You do not have permission to delete this project",
+      );
     }
 
     await this.projectsRepository.remove(project);
@@ -104,48 +123,66 @@ export class ProjectsService {
     await this.findOne(projectUid); // Verify project exists
     return this.projectMembersRepository.find({
       where: { projectUid },
-      relations: ['user', 'invitedBy'],
-      order: { joinedAt: 'DESC' },
+      relations: ["user", "invitedBy"],
+      order: { joinedAt: "DESC" },
     });
   }
 
-  async inviteMember(projectUid: string, inviteDto: InviteMemberDto, inviterId: string): Promise<ProjectMember> {
+  async inviteMember(
+    projectUid: string,
+    inviteDto: InviteMemberDto,
+    inviterId: string,
+  ): Promise<ProjectMember> {
     const project = await this.findOne(projectUid);
-    
+
     // Check if inviter is owner or admin
     const inviterMember = await this.projectMembersRepository.findOne({
       where: { projectUid, userId: inviterId },
     });
-    
-    if (project.ownerId !== inviterId && (!inviterMember || ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(inviterMember.role))) {
-      throw new ForbiddenException('You do not have permission to invite members');
-    }
 
+    if (
+      project.ownerId !== inviterId &&
+      (!inviterMember ||
+        ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(
+          inviterMember.role,
+        ))
+    ) {
+      throw new ForbiddenException(
+        "You do not have permission to invite members",
+      );
+    }
+  }
+
+  private async addMemberToProject(
+    projectUid: string,
+    userId: string,
+    role: ProjectMemberRole,
+    inviterId: string,
+  ): Promise<ProjectMember> {
     // Check if user exists
     try {
-      await this.usersService.findOne(inviteDto.userId);
+      await this.usersService.findOne(userId);
     } catch (error) {
       if (error instanceof NotFoundException) {
-        throw new BadRequestException(`User with ID ${inviteDto.userId} not found`);
+        throw new BadRequestException(
+          `User with ID ${inviteDto.userId} not found`,
+        );
       }
       throw error;
     }
 
     // Check if already a member
     const existing = await this.projectMembersRepository.findOne({
-      where: { projectUid, userId: inviteDto.userId },
+      where: { projectUid, userId },
     });
 
     if (existing) {
-      throw new BadRequestException('User is already a member of this project');
+      throw new BadRequestException("User is already a member of this project");
     }
-
-    // Use the role from DTO (already transformed) or default to MEMBER
-    const role = inviteDto.role || ProjectMemberRole.MEMBER;
 
     const member = this.projectMembersRepository.create({
       projectUid,
-      userId: inviteDto.userId,
+      userId,
       role,
       invitedById: inviterId,
     });
@@ -154,82 +191,120 @@ export class ProjectsService {
       return await this.projectMembersRepository.save(member);
     } catch (error: any) {
       // Handle database constraint errors
-      if (error.code === '23505') { // Unique constraint violation
-        throw new BadRequestException('User is already a member of this project');
+      if (error.code === "23505") {
+        // Unique constraint violation
+        throw new BadRequestException(
+          "User is already a member of this project",
+        );
       }
-      if (error.code === '23503') { // Foreign key constraint violation
-        throw new BadRequestException('Invalid project or user reference');
+      if (error.code === "23503") {
+        // Foreign key constraint violation
+        throw new BadRequestException("Invalid project or user reference");
       }
       throw error;
     }
   }
 
-  async inviteMembers(projectUid: string, inviteDto: InviteMembersDto, inviterId: string): Promise<ProjectMember[]> {
+  async inviteMembers(
+    projectUid: string,
+    inviteDto: InviteMembersDto,
+    inviterId: string,
+  ): Promise<ProjectMember[]> {
     if (!inviteDto.userIds || inviteDto.userIds.length === 0) {
-      throw new BadRequestException('At least one user ID is required');
+      throw new BadRequestException("At least one user ID is required");
     }
 
     const results: ProjectMember[] = [];
     const errors: string[] = [];
-    
+
     for (const userId of inviteDto.userIds) {
       try {
-        const member = await this.inviteMember(projectUid, { userId, role: inviteDto.role }, inviterId);
+        const member = await this.inviteMember(
+          projectUid,
+          { userId, role: inviteDto.role },
+          inviterId,
+        );
         results.push(member);
       } catch (error: any) {
         // Skip if already member, continue with others
-        if (error instanceof BadRequestException && error.message.includes('already a member')) {
+        if (
+          error instanceof BadRequestException &&
+          error.message.includes("already a member")
+        ) {
           continue;
         }
         // Collect errors but continue processing other users
-        errors.push(`Failed to invite user ${userId}: ${error.message || error}`);
+        errors.push(
+          `Failed to invite user ${userId}: ${error.message || error}`,
+        );
       }
     }
 
     // If no users were successfully invited and there were errors, throw
     if (results.length === 0 && errors.length > 0) {
-      throw new BadRequestException(`Failed to invite any members: ${errors.join('; ')}`);
+      throw new BadRequestException(
+        `Failed to invite any members: ${errors.join("; ")}`,
+      );
     }
 
     return results;
   }
 
-  async removeMember(projectUid: string, userId: string, removerId: string): Promise<void> {
+  async removeMember(
+    projectUid: string,
+    userId: string,
+    removerId: string,
+  ): Promise<void> {
     const project = await this.findOne(projectUid);
     const member = await this.projectMembersRepository.findOne({
       where: { projectUid, userId },
     });
 
     if (!member) {
-      throw new NotFoundException('Member not found');
+      throw new NotFoundException("Member not found");
     }
 
     // Only owner or admin can remove members, and cannot remove owner
     if (project.ownerId === userId) {
-      throw new ForbiddenException('Cannot remove project owner');
+      throw new ForbiddenException("Cannot remove project owner");
     }
 
     const removerMember = await this.projectMembersRepository.findOne({
       where: { projectUid, userId: removerId },
     });
 
-    if (project.ownerId !== removerId && (!removerMember || ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(removerMember.role))) {
-      throw new ForbiddenException('You do not have permission to remove members');
+    if (
+      project.ownerId !== removerId &&
+      (!removerMember ||
+        ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(
+          removerMember.role,
+        ))
+    ) {
+      throw new ForbiddenException(
+        "You do not have permission to remove members",
+      );
     }
 
     await this.projectMembersRepository.remove(member);
   }
 
-  async updateMemberRole(projectUid: string, userId: string, role: ProjectMemberRole, updaterId: string): Promise<ProjectMember> {
+  async updateMemberRole(
+    projectUid: string,
+    userId: string,
+    role: ProjectMemberRole,
+    updaterId: string,
+  ): Promise<ProjectMember> {
     const project = await this.findOne(projectUid);
-    
+
     if (project.ownerId === userId) {
-      throw new ForbiddenException('Cannot change owner role');
+      throw new ForbiddenException("Cannot change owner role");
     }
 
     // Only owner can change roles
     if (project.ownerId !== updaterId) {
-      throw new ForbiddenException('Only project owner can change member roles');
+      throw new ForbiddenException(
+        "Only project owner can change member roles",
+      );
     }
 
     const member = await this.projectMembersRepository.findOne({
@@ -237,7 +312,7 @@ export class ProjectsService {
     });
 
     if (!member) {
-      throw new NotFoundException('Member not found');
+      throw new NotFoundException("Member not found");
     }
 
     member.role = role;
@@ -246,8 +321,6 @@ export class ProjectsService {
 
   private generateUid(): string {
     // Generate a short alphanumeric UID (similar to frontend)
-    return uuidv4().replace(/-/g, '').substring(0, 12);
+    return uuidv4().replace(/-/g, "").substring(0, 12);
   }
 }
-
-
