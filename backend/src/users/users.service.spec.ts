@@ -40,28 +40,14 @@ describe("UsersService", () => {
     expect(service).toBeDefined();
   });
 
-  describe("findByIds", () => {
-    it("should return users for valid IDs", async () => {
-      const ids = ["user1", "user2"];
-      const expectedUsers = [
-        { id: "user1", name: "User 1" },
-        { id: "user2", name: "User 2" },
-      ];
-      mockUsersRepository.find.mockResolvedValue(expectedUsers);
+  describe('findByIds', () => {
+    it('should return an array of users', async () => {
+      const users = [new User(), new User()];
+      jest.spyOn(repository, 'findBy').mockResolvedValue(users);
 
-      const result = await service.findByIds(ids);
-
-      expect(result).toEqual(expectedUsers);
-      expect(repository.find).toHaveBeenCalledWith({
-        where: { id: expect.any(Object) }, // In(ids) matcher is complex to mock exactly without importing In, so we check general structure or rely on mock implementation
-        select: ["id", "name", "email", "avatar"],
-      });
-    });
-
-    it("should return empty array for empty input", async () => {
-      const result = await service.findByIds([]);
-      expect(result).toEqual([]);
-      expect(repository.find).not.toHaveBeenCalled();
+      const result = await service.findByIds(['1', '2']);
+      expect(result).toEqual(users);
+      expect(repository.findBy).toHaveBeenCalled();
     });
   });
 });

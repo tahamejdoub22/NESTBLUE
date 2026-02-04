@@ -214,13 +214,9 @@ export class ProjectsService {
       throw new BadRequestException("At least one user ID is required");
     }
 
-    // Deduplicate userIds
-    const uniqueUserIds = [...new Set(inviteDto.userIds)];
-
-    // 1. Fetch Project
+    // Verify project and permissions (ONCE)
     const project = await this.findOne(projectUid);
 
-    // 2. Check Inviter Permissions
     if (project.ownerId !== inviterId) {
       const inviterMember = await this.projectMembersRepository.findOne({
         where: { projectUid, userId: inviterId },
@@ -235,43 +231,6 @@ export class ProjectsService {
         throw new ForbiddenException(
           "You do not have permission to invite members",
         );
-      }
-    }
-
-    // 3. Fetch Users (Bulk)
-    const users = await this.usersService.findByIds(uniqueUserIds);
-    const foundUserMap = new Map(users.map((u) => [u.id, u]));
-
-    // 4. Check Existing Members (Bulk)
-    const validUserIds = users.map((u) => u.id);
-    let existingMemberIds = new Set<string>();
-
-    if (validUserIds.length > 0) {
-      const existingMembers = await this.projectMembersRepository.find({
-        where: {
-          projectUid,
-          userId: In(validUserIds),
-        },
-        select: ["userId"],
-      });
-      existingMemberIds = new Set(existingMembers.map((m) => m.userId));
-    }
-
-    const results: ProjectMember[] = [];
-    const errors: string[] = [];
-    const newMembersToSave: ProjectMember[] = [];
-
-    // 5. Process each requested user ID
-    for (const userId of uniqueUserIds) {
-      if (!foundUserMap.has(userId)) {
-        errors.push(
-          `Failed to invite user ${userId}: User with ID ${userId} not found`,
-        );
-        continue;
-      }
-
-      if (existingMemberIds.has(userId)) {
-        continue;
       }
 
       const member = this.projectMembersRepository.create({
@@ -290,14 +249,62 @@ export class ProjectsService {
       results.push(...savedMembers);
     }
 
-    // 7. Final Check
-    if (results.length === 0 && errors.length > 0) {
+    // Fetch all users to be invited (ONCE)
+    const foundUsers = await this.usersService.findByIds(inviteDto.userIds);
+    const foundUserIds = foundUsers.map((u) => u.id);
+    const missingUserIds = inviteDto.userIds.filter(
+      (id) => !foundUserIds.includes(id),
+    );
+
+    // Fetch existing members for these users (ONCE)
+    let existingMemberUserIds: string[] = [];
+    if (foundUserIds.length > 0) {
+      const existingMembers = await this.projectMembersRepository.find({
+        where: {
+          projectUid,
+          userId: In(foundUserIds),
+        },
+      });
+      existingMemberUserIds = existingMembers.map((m) => m.userId);
+    }
+
+    // Determine who to invite
+    const usersToInvite = foundUsers.filter(
+      (u) => !existingMemberUserIds.includes(u.id),
+    );
+
+    // Bulk insert (ONCE)
+    if (usersToInvite.length > 0) {
+      const newMembers = usersToInvite.map((user) =>
+        this.projectMembersRepository.create({
+          projectUid,
+          userId: user.id,
+          role: inviteDto.role || ProjectMemberRole.MEMBER,
+          invitedById: inviterId,
+        }),
+      );
+
+      // Save all at once
+      await this.projectMembersRepository.save(newMembers);
+
+      return newMembers;
+    }
+
+    // If no users were successfully invited, check for errors
+    const errors: string[] = [];
+    if (missingUserIds.length > 0) {
+      missingUserIds.forEach((id) =>
+        errors.push(`Failed to invite user ${id}: User with ID ${id} not found`),
+      );
+    }
+
+    if (errors.length > 0) {
       throw new BadRequestException(
         `Failed to invite any members: ${errors.join("; ")}`,
       );
     }
 
-    return results;
+    return [];
   }
 
   async removeMember(
