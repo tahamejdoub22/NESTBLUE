@@ -159,4 +159,35 @@ describe("MessagesService", () => {
       expect(result.avatar).toBeUndefined();
     });
   });
+
+  describe('findConversationById', () => {
+    it('should return conversation if user is participant', async () => {
+      const userId = 'user-1';
+      const conversationId = 'conv-1';
+      const mockConversation = {
+        id: conversationId,
+        participantIds: [userId, 'user-2'],
+      };
+
+      conversationsRepository.findOne.mockResolvedValue(mockConversation);
+
+      const result = await service.findConversationById(conversationId, userId);
+      expect(result).toEqual(mockConversation);
+    });
+
+    it('should throw ForbiddenException if user is not participant', async () => {
+      const userId = 'user-1';
+      const conversationId = 'conv-1';
+      const mockConversation = {
+        id: conversationId,
+        participantIds: ['user-2', 'user-3'],
+      };
+
+      conversationsRepository.findOne.mockResolvedValue(mockConversation);
+
+      await expect(service.findConversationById(conversationId, userId))
+        .rejects
+        .toThrow(ForbiddenException);
+    });
+  });
 });

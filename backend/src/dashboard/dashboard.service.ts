@@ -905,14 +905,19 @@ export class DashboardService {
         totalSpent += isNaN(amount) ? 0 : amount;
       }
 
-      // Calculate remaining budget
-      const remainingBudget = totalBudget - totalSpent;
+      const expenseMap = new Map<string, number>();
+      let totalExpenses = 0;
+      expenseSums.forEach((e) => {
+        const val = parseSum(e);
+        totalExpenses += val;
+        if (e.projectId) expenseMap.set(e.projectId, val);
+      });
 
       // Calculate budget utilization percentage
       const budgetUtilization =
         totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-      // Group by project
+      // Group by project using maps
       const projectBudgets = projects.map((project) => {
         let projectBudget = 0;
         for (const b of budgets) {
@@ -961,8 +966,21 @@ export class DashboardService {
         };
       });
 
+      // Fetch only recent data for cost trend (last 6 months)
+      const now = new Date();
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+      const [recentCosts, recentExpenses] = await Promise.all([
+        this.costsRepository.find({
+          where: { date: MoreThanOrEqual(sixMonthsAgo) },
+        }),
+        this.expensesRepository.find({
+          where: { startDate: MoreThanOrEqual(sixMonthsAgo) },
+        }),
+      ]);
+
       // Calculate cost trend (monthly costs for last 6 months)
-      const costTrend = this.calculateCostTrend(costs, expenses);
+      const costTrend = this.calculateCostTrend(recentCosts, recentExpenses);
 
       return {
         totalBudget,

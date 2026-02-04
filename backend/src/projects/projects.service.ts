@@ -151,10 +151,17 @@ export class ProjectsService {
         "You do not have permission to invite members",
       );
     }
+  }
 
+  private async addMemberToProject(
+    projectUid: string,
+    userId: string,
+    role: ProjectMemberRole,
+    inviterId: string,
+  ): Promise<ProjectMember> {
     // Check if user exists
     try {
-      await this.usersService.findOne(inviteDto.userId);
+      await this.usersService.findOne(userId);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw new BadRequestException(
@@ -166,19 +173,16 @@ export class ProjectsService {
 
     // Check if already a member
     const existing = await this.projectMembersRepository.findOne({
-      where: { projectUid, userId: inviteDto.userId },
+      where: { projectUid, userId },
     });
 
     if (existing) {
       throw new BadRequestException("User is already a member of this project");
     }
 
-    // Use the role from DTO (already transformed) or default to MEMBER
-    const role = inviteDto.role || ProjectMemberRole.MEMBER;
-
     const member = this.projectMembersRepository.create({
       projectUid,
-      userId: inviteDto.userId,
+      userId,
       role,
       invitedById: inviterId,
     });

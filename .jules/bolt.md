@@ -6,6 +6,6 @@
 **Learning:** The `SprintsService.findOne` method was recalculating task counts on every read, causing a hidden N+1 query issue (2 extra queries per read) and also contained a reference error bug.
 **Action:** Relied on event-driven updates from `TasksService` to maintain counts in `Sprint` entity, and removed the recalculation from the read path. Always verify that "freshness" checks aren't secretly performing expensive writes during reads.
 
-## 2026-01-26 - NotificationsService N+1 Optimization
-**Learning:**  was performing N inserts and N unread count queries (via ) for N users, leading to 2N database calls.
-**Action:** Replaced with  for batched inserts and  with  to fetch all unread counts in a single query. Always look for  patterns involving database calls.
+## 2024-05-25 - Metrics Calculation Optimization
+**Learning:** Found that `calculateBudgetCostMetrics` was fetching the entire `budgets`, `costs`, and `expenses` tables to calculate sums in memory. This scales linearly with database size (O(N)), causing severe performance degradation.
+**Action:** Replaced with `createQueryBuilder` aggregation queries (SUM + GROUP BY) to offload calculation to the database. Always check "statistics" or "metrics" methods for hidden `findAll` calls.

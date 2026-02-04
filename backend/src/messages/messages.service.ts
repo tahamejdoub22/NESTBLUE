@@ -150,7 +150,7 @@ export class MessagesService {
     });
   }
 
-  async findConversationById(id: string): Promise<Conversation> {
+  async findConversationById(id: string, userId: string): Promise<Conversation> {
     const conversation = await this.conversationsRepository.findOne({
       where: { id },
       relations: ["messages"],
@@ -158,6 +158,10 @@ export class MessagesService {
 
     if (!conversation) {
       throw new NotFoundException(`Conversation with ID ${id} not found`);
+    }
+
+    if (!conversation.participantIds.includes(userId)) {
+      throw new ForbiddenException('You are not a participant in this conversation');
     }
 
     return conversation;
@@ -172,12 +176,15 @@ export class MessagesService {
     return this.conversationsRepository.save(conversation);
   }
 
-  async deleteConversation(id: string): Promise<void> {
-    const conversation = await this.findConversationById(id);
+  async deleteConversation(id: string, userId: string): Promise<void> {
+    const conversation = await this.findConversationById(id, userId);
     await this.conversationsRepository.remove(conversation);
   }
 
   async markConversationRead(id: string, userId: string): Promise<void> {
+    // Verify access
+    await this.checkConversationAccess(id, userId);
+
     // Mark conversation as read (reset unread count)
     await this.conversationsRepository.update(id, { unreadCount: 0 });
 
@@ -234,7 +241,10 @@ export class MessagesService {
     return savedMessage;
   }
 
-  async findMessagesByConversation(conversationId: string): Promise<Message[]> {
+  async findMessagesByConversation(conversationId: string, userId: string): Promise<Message[]> {
+    // Verify access first
+    await this.checkConversationAccess(conversationId, userId);
+
     return this.messagesRepository.find({
       where: { conversationId },
       order: { createdAt: "ASC" },
