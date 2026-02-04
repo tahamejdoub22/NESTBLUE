@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User, UserStatus } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -59,6 +59,11 @@ export class UsersService {
     return this.usersRepository.findOne({
       where: { passwordResetToken: token },
     });
+  }
+
+  async findByIds(ids: string[]): Promise<User[]> {
+    if (ids.length === 0) return [];
+    return this.usersRepository.find({ where: { id: In(ids) } });
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {

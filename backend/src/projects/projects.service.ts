@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Project } from './entities/project.entity';
 import { ProjectMember, ProjectMemberRole } from './entities/project-member.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -127,29 +127,51 @@ export class ProjectsService {
 
     await this.validateInvitePermissions(projectUid, inviterId);
 
-    const results: ProjectMember[] = [];
+    const userIds = [...new Set(inviteDto.userIds)];
+    const role = inviteDto.role || ProjectMemberRole.MEMBER;
+
+    // Fetch all users and existing members in bulk
+    const [users, existingMembers] = await Promise.all([
+      this.usersService.findByIds(userIds),
+      this.projectMembersRepository.find({
+        where: {
+          projectUid,
+          userId: In(userIds),
+        },
+      }),
+    ]);
+
+    const foundUserIds = new Set(users.map((u) => u.id));
+    const existingMemberIds = new Set(existingMembers.map((m) => m.userId));
+
+    const newMembersData: ProjectMember[] = [];
     const errors: string[] = [];
 
-    for (const userId of inviteDto.userIds) {
-      try {
-        const member = await this.addMemberToProject(
+    for (const userId of userIds) {
+      if (!foundUserIds.has(userId)) {
+        errors.push(`Failed to invite user ${userId}: User with ID ${userId} not found`);
+        continue;
+      }
+
+      if (existingMemberIds.has(userId)) {
+        continue;
+      }
+
+      newMembersData.push(
+        this.projectMembersRepository.create({
           projectUid,
           userId,
-          inviteDto.role || ProjectMemberRole.MEMBER,
-          inviterId,
-        );
-        results.push(member);
-      } catch (error: any) {
-        // Skip if already member, continue with others
-        if (error instanceof BadRequestException && error.message.includes('already a member')) {
-          continue;
-        }
-        // Collect errors but continue processing other users
-        errors.push(`Failed to invite user ${userId}: ${error.message || error}`);
-      }
+          role,
+          invitedById: inviterId,
+        }),
+      );
     }
 
-    // If no users were successfully invited and there were errors, throw
+    let results: ProjectMember[] = [];
+    if (newMembersData.length > 0) {
+      results = await this.projectMembersRepository.save(newMembersData);
+    }
+
     if (results.length === 0 && errors.length > 0) {
       throw new BadRequestException(`Failed to invite any members: ${errors.join('; ')}`);
     }
