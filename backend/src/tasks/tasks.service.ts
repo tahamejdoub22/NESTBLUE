@@ -5,7 +5,7 @@ import {
   forwardRef,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { Task } from "./entities/task.entity";
 import { Subtask } from "./entities/subtask.entity";
 import { Comment } from "./entities/comment.entity";
@@ -126,6 +126,23 @@ export class TasksService {
         `Error in TasksService.findAll for projectId ${projectId}:`,
         error,
       );
+      throw error;
+    }
+  }
+
+  async findAllByProjectIds(projectIds: string[]): Promise<Task[]> {
+    if (!projectIds || projectIds.length === 0) {
+      return [];
+    }
+
+    try {
+      return await this.tasksRepository.find({
+        where: { projectId: In(projectIds) },
+        relations: [],
+        order: { createdAt: "DESC" },
+      });
+    } catch (error) {
+      console.error("Error in TasksService.findAllByProjectIds:", error);
       throw error;
     }
   }

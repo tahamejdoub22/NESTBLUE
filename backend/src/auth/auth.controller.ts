@@ -34,21 +34,21 @@ export class AuthController {
   @Post("login")
   @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'User login' })
-  @ApiResponse({ status: 200, description: 'Login successful' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  @ApiResponse({ status: 429, description: 'Too many requests' })
+  @ApiOperation({ summary: "User login" })
+  @ApiResponse({ status: 200, description: "Login successful" })
+  @ApiResponse({ status: 401, description: "Invalid credentials" })
+  @ApiResponse({ status: 429, description: "Too many requests" })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
 
-  @Post('register')
+  @Post("register")
   @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'User registration' })
-  @ApiResponse({ status: 201, description: 'Registration successful' })
-  @ApiResponse({ status: 409, description: 'Email already exists' })
-  @ApiResponse({ status: 429, description: 'Too many requests' })
+  @ApiOperation({ summary: "User registration" })
+  @ApiResponse({ status: 201, description: "Registration successful" })
+  @ApiResponse({ status: 409, description: "Email already exists" })
+  @ApiResponse({ status: 429, description: "Too many requests" })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
@@ -62,35 +62,35 @@ export class AuthController {
     return this.authService.refreshToken(refreshToken);
   }
 
-  @Post('forgot-password')
+  @Post("forgot-password")
   @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request password reset' })
-  @ApiResponse({ status: 200, description: 'Password reset email sent' })
-  @ApiResponse({ status: 429, description: 'Too many requests' })
+  @ApiOperation({ summary: "Request password reset" })
+  @ApiResponse({ status: 200, description: "Password reset email sent" })
+  @ApiResponse({ status: 429, description: "Too many requests" })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     return this.authService.forgotPassword(forgotPasswordDto);
   }
 
-  @Post('reset-password')
+  @Post("reset-password")
   @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset password' })
-  @ApiResponse({ status: 200, description: 'Password reset successful' })
-  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
-  @ApiResponse({ status: 429, description: 'Too many password reset attempts' })
+  @ApiOperation({ summary: "Reset password" })
+  @ApiResponse({ status: 200, description: "Password reset successful" })
+  @ApiResponse({ status: 400, description: "Invalid or expired token" })
+  @ApiResponse({ status: 429, description: "Too many requests" })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto);
   }
 
-  @Post('verify-email')
+  @Post("verify-email")
   @UseGuards(RateLimiterGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify email address' })
-  @ApiResponse({ status: 200, description: 'Email verified' })
-  @ApiResponse({ status: 400, description: 'Invalid token' })
-  @ApiResponse({ status: 429, description: 'Too many verification attempts' })
-  async verifyEmail(@Body('token') token: string) {
+  @ApiOperation({ summary: "Verify email address" })
+  @ApiResponse({ status: 200, description: "Email verified" })
+  @ApiResponse({ status: 400, description: "Invalid token" })
+  @ApiResponse({ status: 429, description: "Too many requests" })
+  async verifyEmail(@Body("token") token: string) {
     return this.authService.verifyEmail(token);
   }
 

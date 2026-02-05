@@ -944,21 +944,22 @@ export class DashboardService {
             : Number(cost.amount || 0);
         totalSpent += isNaN(amount) ? 0 : amount;
       }
+      const expenseMap = new Map<string, number>();
       for (const expense of expenses) {
         const amount =
           typeof expense.amount === "string"
             ? parseFloat(expense.amount)
             : Number(expense.amount || 0);
-        totalSpent += isNaN(amount) ? 0 : amount;
+        const val = isNaN(amount) ? 0 : amount;
+        totalSpent += val;
+
+        if (expense.projectId) {
+          const current = expenseMap.get(expense.projectId) || 0;
+          expenseMap.set(expense.projectId, current + val);
+        }
       }
 
-      const expenseMap = new Map<string, number>();
-      let totalExpenses = 0;
-      expenseSums.forEach((e) => {
-        const val = parseSum(e);
-        totalExpenses += val;
-        if (e.projectId) expenseMap.set(e.projectId, val);
-      });
+      const remainingBudget = totalBudget - totalSpent;
 
       // Calculate budget utilization percentage
       const budgetUtilization =

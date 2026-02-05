@@ -45,12 +45,12 @@ describe("UsersService", () => {
     expect(service).toBeDefined();
   });
 
-  describe('findByIds', () => {
-    it('should return an array of users', async () => {
+  describe("findByIds", () => {
+    it("should return an array of users", async () => {
       const users = [new User(), new User()];
-      jest.spyOn(repository, 'findBy').mockResolvedValue(users);
+      jest.spyOn(repository, "findBy").mockResolvedValue(users);
 
-      const result = await service.findByIds(['1', '2']);
+      const result = await service.findByIds(["1", "2"]);
       expect(result).toEqual(users);
       expect(repository.findBy).toHaveBeenCalled();
     });

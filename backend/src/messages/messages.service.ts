@@ -188,7 +188,7 @@ export class MessagesService {
   ): Promise<void> {
     const conversation = await this.conversationsRepository.findOne({
       where: { id: conversationId },
-      select: ["id", "participantIds"],
+      select: ["participantIds"],
     });
 
     if (!conversation) {
@@ -213,7 +213,7 @@ export class MessagesService {
     return this.conversationsRepository.save(conversation);
   }
 
-  async deleteConversation(id: string, userId: string): Promise<void> {
+  async deleteConversation(id: string, userId?: string): Promise<void> {
     const conversation = await this.findConversationById(id, userId);
     await this.conversationsRepository.remove(conversation);
   }
@@ -283,10 +283,12 @@ export class MessagesService {
 
   async findMessagesByConversation(
     conversationId: string,
-    userId: string,
+    userId?: string,
   ): Promise<Message[]> {
     // Verify access first
-    await this.checkConversationAccess(conversationId, userId);
+    if (userId) {
+      await this.checkConversationAccess(conversationId, userId);
+    }
 
     return this.messagesRepository.find({
       where: { conversationId },

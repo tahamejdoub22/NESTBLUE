@@ -8,6 +8,9 @@ import {
   Delete,
   UseGuards,
   Request,
+  Inject,
+  forwardRef,
+  ForbiddenException,
   UseInterceptors,
   UploadedFile,
   Res,
@@ -29,13 +32,18 @@ import { UpdateTaskDto } from "./dto/update-task.dto";
 import { CreateSubtaskDto } from "./dto/create-subtask.dto";
 import { CreateCommentDto } from "./dto/create-comment.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { ProjectsService } from "../projects/projects.service";
 
 @ApiTags("Tasks")
 @Controller("tasks")
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class TasksController {
-  constructor(private readonly tasksService: TasksService) {}
+  constructor(
+    private readonly tasksService: TasksService,
+    @Inject(forwardRef(() => ProjectsService))
+    private readonly projectsService: ProjectsService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: "Create a new task" })
@@ -44,6 +52,20 @@ export class TasksController {
       if (!req.user || !req.user.userId) {
         throw new Error("User not authenticated or userId missing");
       }
+
+      // Check project access
+      if (createTaskDto.projectId) {
+        const hasAccess = await this.projectsService.hasAccess(
+          req.user.userId,
+          createTaskDto.projectId,
+        );
+        if (!hasAccess) {
+          throw new ForbiddenException(
+            "You do not have permission to create tasks in this project",
+          );
+        }
+      }
+
       const task = await this.tasksService.create(
         createTaskDto,
         req.user.userId,
@@ -63,9 +85,27 @@ export class TasksController {
       const projectId = req.query?.projectId as string | undefined;
       const validProjectId =
         projectId && projectId.trim() !== "" ? projectId.trim() : undefined;
-      const tasks = await this.tasksService.findAll(validProjectId);
-      // Transform tasks to match frontend format
-      return tasks.map((task) => this.transformTask(task));
+
+      if (validProjectId) {
+        const hasAccess = await this.projectsService.hasAccess(
+          req.user.userId,
+          validProjectId,
+        );
+        if (!hasAccess) {
+          throw new ForbiddenException(
+            "You do not have permission to access tasks in this project",
+          );
+        }
+        const tasks = await this.tasksService.findAll(validProjectId);
+        return tasks.map((task) => this.transformTask(task));
+      } else {
+        // If no project ID provided, only return tasks from accessible projects
+        const accessibleProjectIds =
+          await this.projectsService.getAccessibleProjectIds(req.user.userId);
+        const tasks =
+          await this.tasksService.findAllByProjectIds(accessibleProjectIds);
+        return tasks.map((task) => this.transformTask(task));
+      }
     } catch (error) {
       console.error(`Error in tasks.findAll:`, error);
       throw error;
@@ -74,8 +114,22 @@ export class TasksController {
 
   @Get(":uid")
   @ApiOperation({ summary: "Get task by UID" })
-  async findOne(@Param("uid") uid: string) {
+  async findOne(@Param("uid") uid: string, @Request() req) {
     const task = await this.tasksService.findOne(uid);
+
+    // Check access
+    if (task.projectId) {
+      const hasAccess = await this.projectsService.hasAccess(
+        req.user.userId,
+        task.projectId,
+      );
+      if (!hasAccess) {
+        throw new ForbiddenException(
+          "You do not have permission to access this task",
+        );
+      }
+    }
+
     return this.transformTask(task);
   }
 

@@ -266,10 +266,6 @@ describe("DashboardService", () => {
       spent: 250,
       remaining: 750,
     });
-
-    expect(mockBudgetsRepository.createQueryBuilder).toHaveBeenCalled();
-    expect(mockCostsRepository.createQueryBuilder).toHaveBeenCalled();
-    expect(mockExpensesRepository.createQueryBuilder).toHaveBeenCalled();
   });
 
   it("should filter projects, tasks, and sprints by user access (Security)", async () => {
