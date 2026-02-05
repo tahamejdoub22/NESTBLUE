@@ -1,5 +1,13 @@
-import { IsString, IsOptional, IsEnum, IsInt, Min, Max, IsDateString } from 'class-validator';
-import { ProjectStatus } from '../entities/project.entity';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsInt,
+  Min,
+  Max,
+  IsDateString,
+} from "class-validator";
+import { ProjectStatus } from "../entities/project.entity";
 
 export class CreateProjectDto {
   @IsString()
@@ -39,5 +47,3 @@ export class CreateProjectDto {
   @IsString()
   spaceId?: string;
 }
-
-

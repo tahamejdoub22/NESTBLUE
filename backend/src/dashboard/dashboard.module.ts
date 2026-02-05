@@ -31,5 +31,3 @@ import { Notification } from '../notifications/entities/notification.entity';
   exports: [DashboardService],
 })
 export class DashboardModule {}
-
-
