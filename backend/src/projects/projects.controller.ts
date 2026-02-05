@@ -90,9 +90,9 @@ export class ProjectsController {
     return this.teamSpacesService.remove(id, req.user.userId);
   }
 
-  @Get(":uid")
-  @ApiOperation({ summary: "Get project by UID" })
-  async findOne(@Param("uid") uid: string, @Request() req) {
+  @Get(':uid')
+  @ApiOperation({ summary: 'Get project by UID' })
+  async findOne(@Param('uid') uid: string, @Request() req) {
     try {
       return await this.projectsService.findOne(uid, req.user.userId);
     } catch (error) {
@@ -101,13 +101,11 @@ export class ProjectsController {
     }
   }
 
-  @Get(":uid/tasks")
-  @ApiOperation({ summary: "Get tasks by project" })
-  async getTasksByProject(@Param("uid") uid: string, @Request() req) {
+  @Get(':uid/tasks')
+  @ApiOperation({ summary: 'Get tasks by project' })
+  async getTasksByProject(@Param('uid') uid: string, @Request() req) {
     try {
-      // Check access first
       await this.projectsService.findOne(uid, req.user.userId);
-
       const tasks = await this.tasksService.findAll(uid);
       return tasks.map((task) => ({
         uid: task.uid,
@@ -154,11 +152,10 @@ export class ProjectsController {
   }
 
   // Team Members
-  @Get(":uid/members")
-  @ApiOperation({ summary: "Get project team members" })
-  async getMembers(@Param("uid") uid: string, @Request() req) {
-    await this.projectsService.findOne(uid, req.user.userId);
-    return this.projectsService.getProjectMembers(uid);
+  @Get(':uid/members')
+  @ApiOperation({ summary: 'Get project team members' })
+  getMembers(@Param('uid') uid: string, @Request() req) {
+    return this.projectsService.getProjectMembers(uid, req.user.userId);
   }
 
   @Post(":uid/members/invite")
