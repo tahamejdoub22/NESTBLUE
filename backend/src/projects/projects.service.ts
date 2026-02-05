@@ -162,65 +162,53 @@ export class ProjectsService {
     const userIds = [...new Set(inviteDto.userIds)];
     await this.validateInvitePermissions(projectUid, inviterId);
 
-    // Performance Optimization: Batch database operations to prevent N+1 queries.
-    // Reduces query count from 3N to 3 queries regardless of user count.
-    const userIds = [...new Set(inviteDto.userIds)]; // Deduplicate
+    const userIds = [...new Set(inviteDto.userIds)];
+    const role = inviteDto.role || ProjectMemberRole.MEMBER;
+
+    // Fetch all users and existing members in bulk
+    const [users, existingMembers] = await Promise.all([
+      this.usersService.findByIds(userIds),
+      this.projectMembersRepository.find({
+        where: {
+          projectUid,
+          userId: In(userIds),
+        },
+      }),
+    ]);
+
+    const foundUserIds = new Set(users.map((u) => u.id));
+    const existingMemberIds = new Set(existingMembers.map((m) => m.userId));
+
+    const newMembersData: ProjectMember[] = [];
     const errors: string[] = [];
 
-    // 1. Fetch valid users in bulk
-    const validUsers = await this.usersService.findByIds(userIds);
-    const validUserIds = new Set(validUsers.map((u) => u.id));
-
-    // Identify invalid users
-    for (const id of userIds) {
-      if (!validUserIds.has(id)) {
-        errors.push(`Failed to invite user ${id}: User with ID ${id} not found`);
-      }
-    }
-
-    // 2. Check existing members in bulk
-    const existingMembers = await this.projectMembersRepository.find({
-      where: {
-        projectUid,
-        userId: In(Array.from(validUserIds)),
-      },
-      select: ['userId'],
-    });
-
-    const existingMemberIds = new Set(existingMembers.map((m) => m.userId));
-    const newMembersToCreate: ProjectMember[] = [];
-
-    for (const user of validUsers) {
-      if (existingMemberIds.has(user.id)) {
+    for (const userId of userIds) {
+      if (!foundUserIds.has(userId)) {
+        errors.push(`Failed to invite user ${userId}: User with ID ${userId} not found`);
         continue;
       }
-      newMembersToCreate.push(
+
+      if (existingMemberIds.has(userId)) {
+        continue;
+      }
+
+      newMembersData.push(
         this.projectMembersRepository.create({
           projectUid,
-          userId: user.id,
-          role: inviteDto.role || ProjectMemberRole.MEMBER,
+          userId,
+          role,
           invitedById: inviterId,
         }),
       );
     }
 
-    if (newMembersToCreate.length === 0) {
-      if (errors.length > 0) {
-        throw new BadRequestException(
-          `Failed to invite any members: ${errors.join('; ')}`,
-        );
-      }
-      return [];
+    let results: ProjectMember[] = [];
+    if (newMembersData.length > 0) {
+      results = await this.projectMembersRepository.save(newMembersData);
     }
 
-    // 3. Bulk insert new members
-    // We use save which handles insertion of array
-    try {
-      const results = await this.projectMembersRepository.save(newMembersToCreate);
-      return results;
-    } catch (error: any) {
-      // In case of any database error during bulk save
-      throw new BadRequestException(`Failed to invite members: ${error.message}`);
+    if (results.length === 0 && errors.length > 0) {
+      throw new BadRequestException(`Failed to invite any members: ${errors.join('; ')}`);
     }
   }
 

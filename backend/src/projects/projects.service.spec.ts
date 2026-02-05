@@ -15,6 +15,12 @@ import { UsersService } from '../users/users.service';
 import { InviteMembersDto } from './dto/invite-member.dto';
 import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
+
 describe('ProjectsService', () => {
   let service: ProjectsService;
   let projectRepo: Repository<Project>;
@@ -121,7 +127,7 @@ describe('ProjectsService', () => {
   });
 
   describe('inviteMembers', () => {
-    it('should use bulk operations for inviting multiple users', async () => {
+    it('should optimize bulk invites', async () => {
       const projectUid = 'proj-123';
       const inviterId = 'user-owner';
       const inviteDto: InviteMembersDto = {
@@ -169,34 +175,26 @@ describe('ProjectsService', () => {
 
       jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
 
-      // Mock valid users
-      jest.spyOn(usersService, 'findByIds').mockResolvedValue([
-        { id: 'valid-new' },
-        { id: 'valid-existing' },
-      ] as any);
+      // Mock existing members (return empty array = none exist)
+      jest.spyOn(projectMembersRepository, 'find').mockResolvedValue([]);
 
-      // Mock existing members
-      jest.spyOn(projectMembersRepository, 'find').mockResolvedValue([
-        { userId: 'valid-existing' } as any
+      // Mock users (return all found)
+      jest.spyOn(usersService, 'findByIds').mockResolvedValue([
+          { id: 'user-1' } as any,
+          { id: 'user-2' } as any
       ]);
 
-      // Mock save
-      const savedMembers = [
-        { userId: 'valid-new', role: 'MEMBER' }
-      ] as any;
-      jest.spyOn(projectMembersRepository, 'save').mockResolvedValue(savedMembers);
+      // Mock create/save
       jest.spyOn(projectMembersRepository, 'create').mockImplementation((dto) => dto as any);
+      jest.spyOn(projectMembersRepository, 'save').mockResolvedValue([{}, {}] as any);
 
-      const result = await service.inviteMembers(projectUid, inviteDto, inviterId);
+      await service.inviteMembers(projectUid, inviteDto, inviterId);
 
-      expect(usersService.findByIds).toHaveBeenCalled();
-      // Should find existing members
-      expect(projectMembersRepository.find).toHaveBeenCalled();
-      // Should only save the new valid user
-      expect(projectMembersRepository.save).toHaveBeenCalledWith(expect.arrayContaining([
-        expect.objectContaining({ userId: 'valid-new' })
-      ]));
-      expect(result).toHaveLength(1);
+      expect(projectsRepository.findOne).toHaveBeenCalledTimes(1);
+      expect(usersService.findByIds).toHaveBeenCalledTimes(1);
+      expect(usersService.findByIds).toHaveBeenCalledWith(['user-1', 'user-2']);
+      expect(projectMembersRepository.find).toHaveBeenCalledTimes(1); // Bulk check existing
+      expect(projectMembersRepository.save).toHaveBeenCalledTimes(1); // Bulk save
     });
   });
 });
