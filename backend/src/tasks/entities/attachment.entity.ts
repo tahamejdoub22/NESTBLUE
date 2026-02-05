@@ -4,38 +4,36 @@ import {
   ManyToOne,
   JoinColumn,
   PrimaryGeneratedColumn,
-} from 'typeorm';
-import { Task } from './task.entity';
+} from "typeorm";
+import { Task } from "./task.entity";
 
-@Entity('attachments')
+@Entity("attachments")
 export class Attachment {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: "varchar", length: 255 })
   name: string;
 
-  @Column({ type: 'varchar', length: 500 })
+  @Column({ type: "varchar", length: 500 })
   url: string;
 
-  @Column({ type: 'bigint' })
+  @Column({ type: "bigint" })
   size: number;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: "varchar", length: 100 })
   type: string;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: "varchar", length: 50 })
   taskUid: string;
 
-  @ManyToOne(() => Task, (task) => task.attachments, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'taskUid', referencedColumnName: 'uid' })
+  @ManyToOne(() => Task, (task) => task.attachments, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "taskUid", referencedColumnName: "uid" })
   task: Task;
 
-  @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP" })
   createdAt: Date;
 
-  @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP" })
   updatedAt: Date;
 }
-
-

@@ -28,6 +28,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fadeInUp, staggerContainer, transitions } from "@/lib/motion";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import { format } from "date-fns";
 
 export interface Project {
