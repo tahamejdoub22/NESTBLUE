@@ -55,8 +55,9 @@ export class UsersService {
   }
 
   async findByIds(ids: string[]): Promise<User[]> {
-    if (!ids.length) return [];
-    return this.usersRepository.findBy({ id: In(ids) });
+    return this.usersRepository.find({
+      where: { id: In(ids) },
+    });
   }
 
   async findByEmail(email: string): Promise<User | null> {
