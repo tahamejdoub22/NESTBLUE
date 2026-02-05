@@ -19,7 +19,10 @@ export class ProjectsService {
     private usersService: UsersService,
   ) {}
 
-  async create(createProjectDto: CreateProjectDto, ownerId: string): Promise<Project> {
+  async create(
+    createProjectDto: CreateProjectDto,
+    ownerId: string,
+  ): Promise<Project> {
     const project = this.projectsRepository.create({
       ...createProjectDto,
       uid: this.generateUid(),
@@ -34,11 +37,11 @@ export class ProjectsService {
       const where = ownerId ? { ownerId } : {};
       return await this.projectsRepository.find({
         where,
-        relations: ['owner', 'teamSpace'],
-        order: { createdAt: 'DESC' },
+        relations: ["owner", "teamSpace"],
+        order: { createdAt: "DESC" },
       });
     } catch (error) {
-      console.error('Error in ProjectsService.findAll:', error);
+      console.error("Error in ProjectsService.findAll:", error);
       throw error;
     }
   }
@@ -47,42 +50,63 @@ export class ProjectsService {
     const where = ownerId ? { ownerId } : {};
     const projects = await this.projectsRepository.find({
       where,
-      relations: ['owner', 'tasks'],
-      order: { createdAt: 'DESC' },
+      relations: ["owner", "tasks"],
+      order: { createdAt: "DESC" },
     });
-    
+
     // For each project, check if it has team spaces
     // This is a simplified approach - in production you might want to use a join query
     return projects;
   }
 
-  async findOne(uid: string): Promise<Project> {
+  async findOne(uid: string, checkAccessForUserId?: string): Promise<Project> {
     try {
       const project = await this.projectsRepository.findOne({
         where: { uid },
-        relations: ['owner', 'teamSpace'],
-        order: { createdAt: 'DESC' },
+        relations: ["owner", "teamSpace"],
+        order: { createdAt: "DESC" },
       });
 
       if (!project) {
         throw new NotFoundException(`Project with UID ${uid} not found`);
       }
 
+      if (checkAccessForUserId) {
+        if (project.ownerId !== checkAccessForUserId) {
+          const member = await this.projectMembersRepository.findOne({
+            where: { projectUid: uid, userId: checkAccessForUserId },
+          });
+
+          if (!member) {
+            throw new ForbiddenException('You do not have access to this project');
+          }
+        }
+      }
+
       return project;
     } catch (error) {
       console.error(`Error in ProjectsService.findOne for UID ${uid}:`, error);
-      if (error instanceof NotFoundException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       throw error;
     }
   }
 
-  async update(uid: string, updateProjectDto: UpdateProjectDto, userId: string): Promise<Project> {
+  async update(
+    uid: string,
+    updateProjectDto: UpdateProjectDto,
+    userId: string,
+  ): Promise<Project> {
     const project = await this.findOne(uid);
-    
+
     if (project.ownerId !== userId) {
-      throw new ForbiddenException('You do not have permission to update this project');
+      throw new ForbiddenException(
+        "You do not have permission to update this project",
+      );
     }
 
     Object.assign(project, updateProjectDto);
@@ -91,25 +115,31 @@ export class ProjectsService {
 
   async remove(uid: string, userId: string): Promise<void> {
     const project = await this.findOne(uid);
-    
+
     if (project.ownerId !== userId) {
-      throw new ForbiddenException('You do not have permission to delete this project');
+      throw new ForbiddenException(
+        "You do not have permission to delete this project",
+      );
     }
 
     await this.projectsRepository.remove(project);
   }
 
   // Team Members
-  async getProjectMembers(projectUid: string): Promise<ProjectMember[]> {
-    await this.findOne(projectUid); // Verify project exists
+  async getProjectMembers(projectUid: string, checkAccessForUserId?: string): Promise<ProjectMember[]> {
+    await this.findOne(projectUid, checkAccessForUserId); // Verify project exists and check access
     return this.projectMembersRepository.find({
       where: { projectUid },
-      relations: ['user', 'invitedBy'],
-      order: { joinedAt: 'DESC' },
+      relations: ["user", "invitedBy"],
+      order: { joinedAt: "DESC" },
     });
   }
 
-  async inviteMember(projectUid: string, inviteDto: InviteMemberDto, inviterId: string): Promise<ProjectMember> {
+  async inviteMember(
+    projectUid: string,
+    inviteDto: InviteMemberDto,
+    inviterId: string,
+  ): Promise<ProjectMember> {
     await this.validateInvitePermissions(projectUid, inviterId);
 
     return this.addMemberToProject(
@@ -120,11 +150,16 @@ export class ProjectsService {
     );
   }
 
-  async inviteMembers(projectUid: string, inviteDto: InviteMembersDto, inviterId: string): Promise<ProjectMember[]> {
+  async inviteMembers(
+    projectUid: string,
+    inviteDto: InviteMembersDto,
+    inviterId: string,
+  ): Promise<ProjectMember[]> {
     if (!inviteDto.userIds || inviteDto.userIds.length === 0) {
-      throw new BadRequestException('At least one user ID is required');
+      throw new BadRequestException("At least one user ID is required");
     }
 
+    const userIds = [...new Set(inviteDto.userIds)];
     await this.validateInvitePermissions(projectUid, inviterId);
 
     const userIds = [...new Set(inviteDto.userIds)];
@@ -175,17 +210,13 @@ export class ProjectsService {
     if (results.length === 0 && errors.length > 0) {
       throw new BadRequestException(`Failed to invite any members: ${errors.join('; ')}`);
     }
-
-    return results;
   }
 
-  private async validateInvitePermissions(projectUid: string, inviterId: string): Promise<void> {
+  private async validateInvitePermissions(
+    projectUid: string,
+    inviterId: string,
+  ): Promise<void> {
     const project = await this.findOne(projectUid);
-
-    // If owner, always allowed
-    if (project.ownerId === inviterId) {
-      return;
-    }
 
     // Check if inviter is owner or admin
     const inviterMember = await this.projectMembersRepository.findOne({
@@ -194,9 +225,13 @@ export class ProjectsService {
 
     if (
       !inviterMember ||
-      ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(inviterMember.role)
+      ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(
+        inviterMember.role,
+      )
     ) {
-      throw new ForbiddenException('You do not have permission to invite members');
+      throw new ForbiddenException(
+        "You do not have permission to invite members",
+      );
     }
   }
 
@@ -211,7 +246,9 @@ export class ProjectsService {
       await this.usersService.findOne(userId);
     } catch (error) {
       if (error instanceof NotFoundException) {
-        throw new BadRequestException(`User with ID ${userId} not found`);
+        throw new BadRequestException(
+          `User with ID ${inviteDto.userId} not found`,
+        );
       }
       throw error;
     }
@@ -222,7 +259,7 @@ export class ProjectsService {
     });
 
     if (existing) {
-      throw new BadRequestException('User is already a member of this project');
+      throw new BadRequestException("User is already a member of this project");
     }
 
     const member = this.projectMembersRepository.create({
@@ -236,54 +273,75 @@ export class ProjectsService {
       return await this.projectMembersRepository.save(member);
     } catch (error: any) {
       // Handle database constraint errors
-      if (error.code === '23505') {
+      if (error.code === "23505") {
         // Unique constraint violation
-        throw new BadRequestException('User is already a member of this project');
+        throw new BadRequestException(
+          "User is already a member of this project",
+        );
       }
-      if (error.code === '23503') {
+      if (error.code === "23503") {
         // Foreign key constraint violation
-        throw new BadRequestException('Invalid project or user reference');
+        throw new BadRequestException("Invalid project or user reference");
       }
       throw error;
     }
   }
 
-  async removeMember(projectUid: string, userId: string, removerId: string): Promise<void> {
+  async removeMember(
+    projectUid: string,
+    userId: string,
+    removerId: string,
+  ): Promise<void> {
     const project = await this.findOne(projectUid);
     const member = await this.projectMembersRepository.findOne({
       where: { projectUid, userId },
     });
 
     if (!member) {
-      throw new NotFoundException('Member not found');
+      throw new NotFoundException("Member not found");
     }
 
     // Only owner or admin can remove members, and cannot remove owner
     if (project.ownerId === userId) {
-      throw new ForbiddenException('Cannot remove project owner');
+      throw new ForbiddenException("Cannot remove project owner");
     }
 
     const removerMember = await this.projectMembersRepository.findOne({
       where: { projectUid, userId: removerId },
     });
 
-    if (project.ownerId !== removerId && (!removerMember || ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(removerMember.role))) {
-      throw new ForbiddenException('You do not have permission to remove members');
+    if (
+      project.ownerId !== removerId &&
+      (!removerMember ||
+        ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(
+          removerMember.role,
+        ))
+    ) {
+      throw new ForbiddenException(
+        "You do not have permission to remove members",
+      );
     }
 
     await this.projectMembersRepository.remove(member);
   }
 
-  async updateMemberRole(projectUid: string, userId: string, role: ProjectMemberRole, updaterId: string): Promise<ProjectMember> {
+  async updateMemberRole(
+    projectUid: string,
+    userId: string,
+    role: ProjectMemberRole,
+    updaterId: string,
+  ): Promise<ProjectMember> {
     const project = await this.findOne(projectUid);
-    
+
     if (project.ownerId === userId) {
-      throw new ForbiddenException('Cannot change owner role');
+      throw new ForbiddenException("Cannot change owner role");
     }
 
     // Only owner can change roles
     if (project.ownerId !== updaterId) {
-      throw new ForbiddenException('Only project owner can change member roles');
+      throw new ForbiddenException(
+        "Only project owner can change member roles",
+      );
     }
 
     const member = await this.projectMembersRepository.findOne({
@@ -291,7 +349,7 @@ export class ProjectsService {
     });
 
     if (!member) {
-      throw new NotFoundException('Member not found');
+      throw new NotFoundException("Member not found");
     }
 
     member.role = role;
@@ -300,8 +358,6 @@ export class ProjectsService {
 
   private generateUid(): string {
     // Generate a short alphanumeric UID (similar to frontend)
-    return uuidv4().replace(/-/g, '').substring(0, 12);
+    return uuidv4().replace(/-/g, "").substring(0, 12);
   }
 }
-
-

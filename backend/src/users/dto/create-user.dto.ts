@@ -1,5 +1,5 @@
-import { IsEmail, IsString, IsOptional, IsEnum } from 'class-validator';
-import { UserStatus } from '../entities/user.entity';
+import { IsEmail, IsString, IsOptional, IsEnum } from "class-validator";
+import { UserStatus } from "../entities/user.entity";
 
 export class CreateUserDto {
   @IsString()
@@ -35,5 +35,3 @@ export class CreateUserDto {
   @IsString()
   position?: string;
 }
-
-
