@@ -15,10 +15,11 @@ import { UsersService } from '../users/users.service';
 import { InviteMembersDto } from './dto/invite-member.dto';
 import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 
+// Mock bcrypt to avoid native binding errors in tests
 jest.mock('bcrypt', () => ({
-  hash: jest.fn(),
-  compare: jest.fn(),
-  genSalt: jest.fn(),
+  hash: jest.fn().mockResolvedValue('hashed_password'),
+  compare: jest.fn().mockResolvedValue(true),
+  genSalt: jest.fn().mockResolvedValue('salt'),
 }));
 
 describe('ProjectsService', () => {
@@ -195,6 +196,35 @@ describe('ProjectsService', () => {
       expect(usersService.findByIds).toHaveBeenCalledWith(['user-1', 'user-2']);
       expect(projectMembersRepository.find).toHaveBeenCalledTimes(1); // Bulk check existing
       expect(projectMembersRepository.save).toHaveBeenCalledTimes(1); // Bulk save
+    });
+  });
+
+  describe('findOne with access check', () => {
+    it('should allow access if user is owner', async () => {
+      jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
+
+      const result = await service.findOne('proj-123', 'user-owner');
+      expect(result).toEqual(mockProject);
+    });
+
+    it('should allow access if user is member', async () => {
+      jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
+      jest.spyOn(projectMembersRepository, 'findOne').mockResolvedValue({
+        projectUid: 'proj-123',
+        userId: 'user-member',
+        role: ProjectMemberRole.MEMBER,
+      } as ProjectMember);
+
+      const result = await service.findOne('proj-123', 'user-member');
+      expect(result).toEqual(mockProject);
+    });
+
+    it('should deny access if user is not owner and not member', async () => {
+      jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
+      jest.spyOn(projectMembersRepository, 'findOne').mockResolvedValue(null);
+
+      await expect(service.findOne('proj-123', 'user-stranger'))
+        .rejects.toThrow(ForbiddenException);
     });
   });
 });

@@ -72,14 +72,18 @@ export class ProjectsService {
       }
 
       if (checkAccessForUserId) {
-        if (project.ownerId !== checkAccessForUserId) {
-          const member = await this.projectMembersRepository.findOne({
-            where: { projectUid: uid, userId: checkAccessForUserId },
-          });
+        // Allow if owner
+        if (project.ownerId === checkAccessForUserId) {
+          return project;
+        }
 
-          if (!member) {
-            throw new ForbiddenException('You do not have access to this project');
-          }
+        // Allow if member
+        const member = await this.projectMembersRepository.findOne({
+          where: { projectUid: uid, userId: checkAccessForUserId },
+        });
+
+        if (!member) {
+          throw new ForbiddenException('Access denied');
         }
       }
 
