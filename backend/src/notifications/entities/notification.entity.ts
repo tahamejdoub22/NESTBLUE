@@ -1,62 +1,61 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from '../../common/entities/base.entity';
-import { User } from '../../users/entities/user.entity';
-import { Project } from '../../projects/entities/project.entity';
-import { Task } from '../../tasks/entities/task.entity';
+import { Entity, Column, ManyToOne, JoinColumn } from "typeorm";
+import { BaseEntity } from "../../common/entities/base.entity";
+import { User } from "../../users/entities/user.entity";
+import { Project } from "../../projects/entities/project.entity";
+import { Task } from "../../tasks/entities/task.entity";
 
 export enum NotificationType {
-  INFO = 'info',
-  SUCCESS = 'success',
-  WARNING = 'warning',
-  ERROR = 'error',
+  INFO = "info",
+  SUCCESS = "success",
+  WARNING = "warning",
+  ERROR = "error",
 }
 
-@Entity('notifications')
+@Entity("notifications")
 export class Notification extends BaseEntity {
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: "varchar", length: 255 })
   title: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: "text" })
   message: string;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: NotificationType,
     default: NotificationType.INFO,
   })
   type: NotificationType;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ type: "boolean", default: false })
   read: boolean;
 
-  @Column({ type: 'varchar', length: 500, nullable: true })
+  @Column({ type: "varchar", length: 500, nullable: true })
   actionUrl: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: "varchar", length: 100, nullable: true })
   actionLabel: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: "varchar", length: 100, nullable: true })
   icon: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: "uuid" })
   userId: string;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: "userId" })
   user: User;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: "varchar", length: 50, nullable: true })
   projectId: string;
 
   @ManyToOne(() => Project, { nullable: true })
-  @JoinColumn({ name: 'projectId', referencedColumnName: 'uid' })
+  @JoinColumn({ name: "projectId", referencedColumnName: "uid" })
   project: Project;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: "varchar", length: 50, nullable: true })
   taskId: string;
 
   @ManyToOne(() => Task, { nullable: true })
-  @JoinColumn({ name: 'taskId', referencedColumnName: 'uid' })
+  @JoinColumn({ name: "taskId", referencedColumnName: "uid" })
   task: Task;
 }
-

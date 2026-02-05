@@ -8,47 +8,46 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
-} from 'typeorm';
-import { Project } from './project.entity';
-import { User } from '../../users/entities/user.entity';
+} from "typeorm";
+import { Project } from "./project.entity";
+import { User } from "../../users/entities/user.entity";
 
-@Entity('team_spaces')
+@Entity("team_spaces")
 export class TeamSpace {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: "varchar", length: 255 })
   name: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   description: string;
 
   @OneToMany(() => Project, (project) => project.teamSpace)
   projects: Project[];
 
-  @Column({ type: 'uuid' })
+  @Column({ type: "uuid" })
   createdById: string;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'createdById' })
+  @JoinColumn({ name: "createdById" })
   createdBy: User;
 
-  @Column({ type: 'uuid', array: true, default: [] })
+  @Column({ type: "uuid", array: true, default: [] })
   memberIds: string[];
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: "varchar", length: 50, nullable: true })
   color: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: "varchar", length: 50, nullable: true })
   icon: string;
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ type: "boolean", default: true })
   isActive: boolean;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamptz' })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt: Date;
 }
-
