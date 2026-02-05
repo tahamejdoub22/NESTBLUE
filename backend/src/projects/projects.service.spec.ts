@@ -6,33 +6,24 @@ jest.mock('bcrypt', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { ProjectsService } from './projects.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { Project } from './entities/project.entity';
 import { ProjectMember, ProjectMemberRole } from './entities/project-member.entity';
 import { UsersService } from '../users/users.service';
-import { InviteMembersDto } from './dto/invite-member.dto';
-import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Repository, In } from 'typeorm';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+
+const mockProject = {
+  uid: 'proj-123',
+  ownerId: 'owner-1',
+};
 
 describe('ProjectsService', () => {
   let service: ProjectsService;
-  let projectsRepository: Repository<Project>;
-  let projectMembersRepository: Repository<ProjectMember>;
+  let projectRepo: Repository<Project>;
+  let memberRepo: Repository<ProjectMember>;
   let usersService: UsersService;
-
-  const mockProject = {
-    uid: 'proj-123',
-    ownerId: 'user-owner',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  } as Project;
-
-  const mockInviterMember = {
-    projectUid: 'proj-123',
-    userId: 'user-owner',
-    role: ProjectMemberRole.OWNER,
-  } as ProjectMember;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -41,21 +32,18 @@ describe('ProjectsService', () => {
         {
           provide: getRepositoryToken(Project),
           useValue: {
+            findOne: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
-            find: jest.fn(),
-            findOne: jest.fn(),
-            remove: jest.fn(),
           },
         },
         {
           provide: getRepositoryToken(ProjectMember),
           useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
-            find: jest.fn(),
-            findOne: jest.fn(),
-            remove: jest.fn(),
           },
         },
         {
@@ -69,23 +57,23 @@ describe('ProjectsService', () => {
     }).compile();
 
     service = module.get<ProjectsService>(ProjectsService);
-    projectsRepository = module.get<Repository<Project>>(getRepositoryToken(Project));
-    projectMembersRepository = module.get<Repository<ProjectMember>>(getRepositoryToken(ProjectMember));
+    projectRepo = module.get<Repository<Project>>(getRepositoryToken(Project));
+    memberRepo = module.get<Repository<ProjectMember>>(getRepositoryToken(ProjectMember));
     usersService = module.get<UsersService>(UsersService);
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
   });
 
   describe('inviteMembers', () => {
     it('should use findByIds and bulk save for multiple users', async () => {
       const projectUid = 'proj-123';
-      const inviterId = 'user-owner';
-      const inviteDto: InviteMembersDto = {
-        userIds: ['user-1', 'user-2'],
-        role: ProjectMemberRole.MEMBER,
-      };
+      const inviterId = 'owner-1';
+      const userIds = ['user-1', 'user-2'];
+      const dto = { userIds, role: ProjectMemberRole.MEMBER };
+
+      // Mock project existence
+      (projectRepo.findOne as jest.Mock).mockResolvedValue(mockProject);
+
+      // Mock inviter permissions (owner)
+      // The service checks project.ownerId === inviterId, which is true here.
 
       // Mock setup
       jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
@@ -172,7 +160,7 @@ describe('ProjectsService', () => {
       jest.spyOn(projectMembersRepository, 'create').mockImplementation((dto) => dto as any);
       jest.spyOn(projectMembersRepository, 'save').mockResolvedValue(mockSavedMembers as any);
 
-      await service.inviteMembers(projectUid, inviteDto, inviterId);
+      const result = await service.inviteMembers(projectUid, dto, inviterId);
 
       // Should only save user-1
       expect(projectMembersRepository.create).toHaveBeenCalledTimes(1);
