@@ -6,16 +6,16 @@ import {
   IsDateString,
   IsObject,
   ValidateNested,
-} from 'class-validator';
-import { Type } from 'class-transformer';
-import { TaskStatus, TaskPriority } from '../entities/task.entity';
+} from "class-validator";
+import { Type } from "class-transformer";
+import { TaskStatus, TaskPriority } from "../entities/task.entity";
 
 class EstimatedCostDto {
   @IsOptional()
   amount?: number;
 
   @IsOptional()
-  @IsEnum(['USD', 'EUR', 'GBP', 'MAD'])
+  @IsEnum(["USD", "EUR", "GBP", "MAD"])
   currency?: string;
 }
 
@@ -62,5 +62,3 @@ export class CreateTaskDto {
   @IsString()
   sprintId?: string;
 }
-
-

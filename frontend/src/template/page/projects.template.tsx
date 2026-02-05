@@ -9,6 +9,7 @@ import { Progress } from "@/components/atoms/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { Input } from "@/components/atoms/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { 
   FolderKanban, 
   ArrowRight, 
@@ -28,6 +29,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fadeInUp, staggerContainer, transitions } from "@/lib/motion";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import { format } from "date-fns";
 
 export interface Project {
@@ -218,6 +225,7 @@ export function ProjectsPageTemplate(props: ProjectsPageTemplateProps) {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search projects..."
+              aria-label="Search projects"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 h-9"
