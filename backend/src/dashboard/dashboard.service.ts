@@ -17,6 +17,8 @@ export class DashboardService {
     private projectsRepository: Repository<Project>,
     @InjectRepository(Task)
     private tasksRepository: Repository<Task>,
+    @InjectRepository(Comment)
+    private commentsRepository: Repository<Comment>,
     @InjectRepository(Sprint)
     private sprintsRepository: Repository<Sprint>,
     @InjectRepository(User)
@@ -56,6 +58,18 @@ export class DashboardService {
           relations: ["project", "createdBy", "subtasks", "comments"],
         })
         .catch(() => []);
+
+      // Optimization: Get comment counts per user (avoids loading all comments for all tasks)
+      const commentCounts = await this.commentsRepository
+        .createQueryBuilder('comment')
+        .select('comment.authorId', 'authorId')
+        .addSelect('COUNT(comment.id)', 'count')
+        .groupBy('comment.authorId')
+        .getRawMany();
+
+      const commentCountMap = new Map<string, number>(
+        commentCounts.map((c) => [c.authorId, parseInt(c.count, 10) || 0]),
+      );
 
       // Get active sprints and ensure their counts are true
       const activeSprints =
@@ -383,7 +397,7 @@ export class DashboardService {
             });
 
             // If no tasks but projects exist, show at least 1 to indicate projects exist
-            if (total === 0 && projects.length > 0) {
+            if (total === 0 && projectCount > 0) {
               total = 1;
             }
           } else {
@@ -797,7 +811,11 @@ export class DashboardService {
     }
   }
 
-  private calculateUserContributions(tasks: Task[], users: User[]) {
+  private calculateUserContributions(
+    tasks: Task[],
+    users: User[],
+    commentCountMap?: Map<string, number>,
+  ) {
     return users.map((user) => {
       const userTasks = tasks.filter((t) => t.assigneeIds?.includes(user.id));
       const completedTasks = userTasks.filter((t) => t?.status === "complete");
@@ -909,19 +927,30 @@ export class DashboardService {
       // Create lookup maps
       const budgetMap = new Map<string, number>();
       let totalBudget = 0;
-      budgetSums.forEach((b) => {
-        const val = parseSum(b);
-        totalBudget += val;
-        if (b.projectId) budgetMap.set(b.projectId, val);
-      });
+      for (const budget of budgets) {
+        const amount =
+          typeof budget.amount === "string"
+            ? parseFloat(budget.amount)
+            : Number(budget.amount || 0);
+        totalBudget += isNaN(amount) ? 0 : amount;
+      }
 
-      const costMap = new Map<string, number>();
-      let totalCosts = 0;
-      costSums.forEach((c) => {
-        const val = parseSum(c);
-        totalCosts += val;
-        if (c.projectId) costMap.set(c.projectId, val);
-      });
+      // Calculate total spent (costs + expenses)
+      let totalSpent = 0;
+      for (const cost of costs) {
+        const amount =
+          typeof cost.amount === "string"
+            ? parseFloat(cost.amount)
+            : Number(cost.amount || 0);
+        totalSpent += isNaN(amount) ? 0 : amount;
+      }
+      for (const expense of expenses) {
+        const amount =
+          typeof expense.amount === "string"
+            ? parseFloat(expense.amount)
+            : Number(expense.amount || 0);
+        totalSpent += isNaN(amount) ? 0 : amount;
+      }
 
       const expenseMap = new Map<string, number>();
       let totalExpenses = 0;
@@ -931,16 +960,44 @@ export class DashboardService {
         if (e.projectId) expenseMap.set(e.projectId, val);
       });
 
-      const totalSpent = totalCosts + totalExpenses;
-      const remainingBudget = totalBudget - totalSpent;
+      // Calculate budget utilization percentage
       const budgetUtilization =
         totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
       // Group by project using maps
       const projectBudgets = projects.map((project) => {
-        const projectBudget = budgetMap.get(project.uid) || 0;
-        const projectCosts = costMap.get(project.uid) || 0;
-        const projectExpenses = expenseMap.get(project.uid) || 0;
+        let projectBudget = 0;
+        for (const b of budgets) {
+          if (b.projectId === project.uid) {
+            const amount =
+              typeof b.amount === "string"
+                ? parseFloat(b.amount)
+                : Number(b.amount || 0);
+            projectBudget += isNaN(amount) ? 0 : amount;
+          }
+        }
+
+        let projectCosts = 0;
+        for (const c of costs) {
+          if (c.projectId === project.uid) {
+            const amount =
+              typeof c.amount === "string"
+                ? parseFloat(c.amount)
+                : Number(c.amount || 0);
+            projectCosts += isNaN(amount) ? 0 : amount;
+          }
+        }
+
+        let projectExpenses = 0;
+        for (const e of expenses) {
+          if (e.projectId === project.uid) {
+            const amount =
+              typeof e.amount === "string"
+                ? parseFloat(e.amount)
+                : Number(e.amount || 0);
+            projectExpenses += isNaN(amount) ? 0 : amount;
+          }
+        }
 
         const projectSpent = projectCosts + projectExpenses;
         const projectRemaining = projectBudget - projectSpent;

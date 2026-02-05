@@ -1,30 +1,30 @@
-import { TypeOrmModuleOptions } from '@nestjs/typeorm';
-import { ConfigService } from '@nestjs/config';
-import { User } from '../users/entities/user.entity';
-import { Project } from '../projects/entities/project.entity';
-import { Task } from '../tasks/entities/task.entity';
-import { Cost } from '../costs/entities/cost.entity';
-import { Expense } from '../expenses/entities/expense.entity';
-import { Budget } from '../budgets/entities/budget.entity';
-import { Contract } from '../contracts/entities/contract.entity';
-import { Sprint } from '../sprints/entities/sprint.entity';
-import { Conversation } from '../messages/entities/conversation.entity';
-import { Message } from '../messages/entities/message.entity';
-import { Notification } from '../notifications/entities/notification.entity';
-import { Subtask } from '../tasks/entities/subtask.entity';
-import { Comment } from '../tasks/entities/comment.entity';
-import { Attachment } from '../tasks/entities/attachment.entity';
-import { ProjectMember } from '../projects/entities/project-member.entity';
-import { TeamSpace } from '../projects/entities/team-space.entity';
-import { Note } from '../notes/entities/note.entity';
+import { TypeOrmModuleOptions } from "@nestjs/typeorm";
+import { ConfigService } from "@nestjs/config";
+import { User } from "../users/entities/user.entity";
+import { Project } from "../projects/entities/project.entity";
+import { Task } from "../tasks/entities/task.entity";
+import { Cost } from "../costs/entities/cost.entity";
+import { Expense } from "../expenses/entities/expense.entity";
+import { Budget } from "../budgets/entities/budget.entity";
+import { Contract } from "../contracts/entities/contract.entity";
+import { Sprint } from "../sprints/entities/sprint.entity";
+import { Conversation } from "../messages/entities/conversation.entity";
+import { Message } from "../messages/entities/message.entity";
+import { Notification } from "../notifications/entities/notification.entity";
+import { Subtask } from "../tasks/entities/subtask.entity";
+import { Comment } from "../tasks/entities/comment.entity";
+import { Attachment } from "../tasks/entities/attachment.entity";
+import { ProjectMember } from "../projects/entities/project-member.entity";
+import { TeamSpace } from "../projects/entities/team-space.entity";
+import { Note } from "../notes/entities/note.entity";
 
 export const getDatabaseConfig = (
   configService: ConfigService,
 ): TypeOrmModuleOptions => {
-  const databaseUrl = configService.get<string>('DATABASE_URL');
+  const databaseUrl = configService.get<string>("DATABASE_URL");
 
   if (!databaseUrl) {
-    throw new Error('DATABASE_URL is not defined in environment variables');
+    throw new Error("DATABASE_URL is not defined in environment variables");
   }
 
   try {
@@ -35,16 +35,18 @@ export const getDatabaseConfig = (
     const host = url.hostname;
     const port = parseInt(url.port) || 5432;
     const database = url.pathname.slice(1); // Remove leading '/'
-    const ssl = url.searchParams.get('sslmode') === 'require';
+    const ssl = url.searchParams.get("sslmode") === "require";
 
     if (!host || !database) {
-      throw new Error('Invalid DATABASE_URL: missing host or database name');
+      throw new Error("Invalid DATABASE_URL: missing host or database name");
     }
 
-    console.log(`🔧 Database config: ${host}:${port}/${database} (SSL: ${ssl})`);
+    console.log(
+      `🔧 Database config: ${host}:${port}/${database} (SSL: ${ssl})`,
+    );
 
     return {
-      type: 'postgres',
+      type: "postgres",
       host,
       port,
       username,
@@ -81,17 +83,15 @@ export const getDatabaseConfig = (
         Note,
       ],
       synchronize: false, // Disabled to prevent timeout issues - use migrations instead
-      logging: configService.get<string>('NODE_ENV') === 'development',
-      migrations: ['dist/migrations/*.js'],
+      logging: configService.get<string>("NODE_ENV") === "development",
+      migrations: ["dist/migrations/*.js"],
       migrationsRun: false,
     };
   } catch (error) {
-    console.error('❌ Error parsing DATABASE_URL:', error);
+    console.error("❌ Error parsing DATABASE_URL:", error);
     if (error instanceof Error) {
       throw new Error(`Invalid DATABASE_URL format: ${error.message}`);
     }
-    throw new Error('Invalid DATABASE_URL format');
+    throw new Error("Invalid DATABASE_URL format");
   }
 };
-
-

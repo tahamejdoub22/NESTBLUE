@@ -43,9 +43,21 @@ describe("DashboardService", () => {
     getRawMany: jest.fn(),
   };
 
+  // Mock for Comment aggregation
+  const mockCommentQueryBuilder = {
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn(),
+  };
+
   const mockTasksRepository = {
     find: jest.fn(),
     createQueryBuilder: jest.fn().mockReturnValue(mockTaskQueryBuilder),
+  };
+
+  const mockCommentsRepository = {
+    createQueryBuilder: jest.fn().mockReturnValue(mockCommentQueryBuilder),
   };
 
   const mockSprintsRepository = {
@@ -85,10 +97,12 @@ describe("DashboardService", () => {
     // Reset query builder mocks
     mockAggregationQueryBuilder.getRawMany.mockReset();
     mockTaskQueryBuilder.getRawMany.mockReset();
+    mockCommentQueryBuilder.getRawMany.mockReset();
 
     // Set default returns for aggregation to avoid "undefined" errors in other tests
     mockAggregationQueryBuilder.getRawMany.mockResolvedValue([]);
     mockTaskQueryBuilder.getRawMany.mockResolvedValue([]);
+    mockCommentQueryBuilder.getRawMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -99,19 +113,17 @@ describe("DashboardService", () => {
         },
         { provide: getRepositoryToken(Task), useValue: mockTasksRepository },
         {
+          provide: getRepositoryToken(Comment),
+          useValue: mockCommentsRepository,
+        },
+        {
           provide: getRepositoryToken(Sprint),
           useValue: mockSprintsRepository,
         },
         { provide: getRepositoryToken(User), useValue: mockRepository },
-        { provide: getRepositoryToken(Cost), useValue: mockCostsRepository },
-        {
-          provide: getRepositoryToken(Expense),
-          useValue: mockExpensesRepository,
-        },
-        {
-          provide: getRepositoryToken(Budget),
-          useValue: mockBudgetsRepository,
-        },
+        { provide: getRepositoryToken(Cost), useValue: mockRepository },
+        { provide: getRepositoryToken(Expense), useValue: mockRepository },
+        { provide: getRepositoryToken(Budget), useValue: mockRepository },
         {
           provide: getRepositoryToken(Notification),
           useValue: mockNotificationsRepository,

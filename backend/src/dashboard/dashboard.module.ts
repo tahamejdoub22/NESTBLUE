@@ -4,6 +4,7 @@ import { DashboardService } from './dashboard.service';
 import { DashboardController } from './dashboard.controller';
 import { Project } from '../projects/entities/project.entity';
 import { Task } from '../tasks/entities/task.entity';
+import { Comment } from '../tasks/entities/comment.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
 import { User } from '../users/entities/user.entity';
 import { Cost } from '../costs/entities/cost.entity';
@@ -16,6 +17,7 @@ import { Notification } from '../notifications/entities/notification.entity';
     TypeOrmModule.forFeature([
       Project,
       Task,
+      Comment,
       Sprint,
       User,
       Cost,
@@ -29,5 +31,3 @@ import { Notification } from '../notifications/entities/notification.entity';
   exports: [DashboardService],
 })
 export class DashboardModule {}
-
-
