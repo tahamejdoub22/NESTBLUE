@@ -6,6 +6,7 @@ import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/atoms/card";
 import { Badge } from "@/components/atoms/badge";
 import { Progress } from "@/components/atoms/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { Input } from "@/components/atoms/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
@@ -250,7 +251,7 @@ export function ProjectsPageTemplate(props: ProjectsPageTemplateProps) {
                   size="sm"
                   onClick={() => setViewMode("grid")}
                   className="h-7 px-2"
-                  aria-label="Grid view"
+                  aria-label="Switch to grid view"
                 >
                   <Grid3x3 className="h-4 w-4" />
                 </Button>
@@ -264,7 +265,7 @@ export function ProjectsPageTemplate(props: ProjectsPageTemplateProps) {
                   size="sm"
                   onClick={() => setViewMode("list")}
                   className="h-7 px-2"
-                  aria-label="List view"
+                  aria-label="Switch to list view"
                 >
                   <List className="h-4 w-4" />
                 </Button>
@@ -344,11 +345,11 @@ export function ProjectsPageTemplate(props: ProjectsPageTemplateProps) {
                                       variant="ghost"
                                       size="icon"
                                       className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"
-                                      aria-label="Edit project"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         onEditProject(project);
                                       }}
+                                      aria-label={`Edit ${project.name}`}
                                     >
                                       <Pencil className="h-3.5 w-3.5" />
                                     </Button>
@@ -481,11 +482,11 @@ export function ProjectsPageTemplate(props: ProjectsPageTemplateProps) {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-all"
-                                  aria-label="Edit project"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     onEditProject(project);
                                   }}
+                                  aria-label={`Edit ${project.name}`}
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
