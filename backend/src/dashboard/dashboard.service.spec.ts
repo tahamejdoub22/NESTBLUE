@@ -1,17 +1,23 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { DashboardService } from "./dashboard.service";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { Project } from "../projects/entities/project.entity";
-import { Task } from "../tasks/entities/task.entity";
-import { Sprint } from "../sprints/entities/sprint.entity";
-import { User } from "../users/entities/user.entity";
-import { Cost } from "../costs/entities/cost.entity";
-import { Expense } from "../expenses/entities/expense.entity";
-import { Budget } from "../budgets/entities/budget.entity";
-import { Notification } from "../notifications/entities/notification.entity";
-import { Repository } from "typeorm";
+import { Test, TestingModule } from '@nestjs/testing';
+import { DashboardService } from './dashboard.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Project } from '../projects/entities/project.entity';
+import { Task } from '../tasks/entities/task.entity';
+import { Sprint } from '../sprints/entities/sprint.entity';
+import { User } from '../users/entities/user.entity';
+import { Cost } from '../costs/entities/cost.entity';
+import { Expense } from '../expenses/entities/expense.entity';
+import { Budget } from '../budgets/entities/budget.entity';
+import { Notification } from '../notifications/entities/notification.entity';
+import { Repository } from 'typeorm';
 
-describe("DashboardService", () => {
+// Mock bcrypt to avoid native binding errors
+jest.mock('bcrypt', () => ({
+  hash: jest.fn().mockResolvedValue('hashed_password'),
+  compare: jest.fn().mockResolvedValue(true),
+}));
+
+describe('DashboardService', () => {
   let service: DashboardService;
   let tasksRepository: Repository<Task>;
   let sprintsRepository: Repository<Sprint>;
