@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Conversation } from "./entities/conversation.entity";
@@ -74,16 +78,22 @@ export class MessagesService {
 
     // Load all users in parallel
     const userMap = new Map<string, { name: string; avatar?: string }>();
-    await Promise.all(
-      Array.from(allParticipantIds).map(async (id) => {
-        try {
-          const user = await this.usersService.findOne(id);
-          userMap.set(id, { name: user.name, avatar: user.avatar });
-        } catch (error) {
+    const uniqueIds = Array.from(allParticipantIds);
+
+    if (uniqueIds.length > 0) {
+      const users = await this.usersService.findByIds(uniqueIds);
+      const foundUserIds = new Set<string>();
+      users.forEach((user) => {
+        userMap.set(user.id, { name: user.name, avatar: user.avatar });
+        foundUserIds.add(user.id);
+      });
+
+      uniqueIds.forEach((id) => {
+        if (!foundUserIds.has(id)) {
           userMap.set(id, { name: "Unknown User" });
         }
-      }),
-    );
+      });
+    }
 
     // Transform to match frontend format
     return conversations.map((conv) => {
@@ -150,7 +160,10 @@ export class MessagesService {
     });
   }
 
-  async findConversationById(id: string, userId: string): Promise<Conversation> {
+  async findConversationById(
+    id: string,
+    userId?: string,
+  ): Promise<Conversation> {
     const conversation = await this.conversationsRepository.findOne({
       where: { id },
       relations: ["messages"],
@@ -160,11 +173,35 @@ export class MessagesService {
       throw new NotFoundException(`Conversation with ID ${id} not found`);
     }
 
-    if (!conversation.participantIds.includes(userId)) {
-      throw new ForbiddenException('You are not a participant in this conversation');
+    if (userId && !conversation.participantIds.includes(userId)) {
+      throw new ForbiddenException(
+        "You are not a participant in this conversation",
+      );
     }
 
     return conversation;
+  }
+
+  private async checkConversationAccess(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    const conversation = await this.conversationsRepository.findOne({
+      where: { id: conversationId },
+      select: ["id", "participantIds"],
+    });
+
+    if (!conversation) {
+      throw new NotFoundException(
+        `Conversation with ID ${conversationId} not found`,
+      );
+    }
+
+    if (!conversation.participantIds.includes(userId)) {
+      throw new ForbiddenException(
+        "You are not a participant in this conversation",
+      );
+    }
   }
 
   async updateConversation(
@@ -207,7 +244,10 @@ export class MessagesService {
     userId: string,
   ): Promise<Message> {
     // Get conversation to check participants
-    const conversation = await this.findConversationById(conversationId);
+    const conversation = await this.findConversationById(
+      conversationId,
+      userId,
+    );
 
     const user = await this.usersService.findOne(userId);
     const message = this.messagesRepository.create({
@@ -241,7 +281,10 @@ export class MessagesService {
     return savedMessage;
   }
 
-  async findMessagesByConversation(conversationId: string, userId: string): Promise<Message[]> {
+  async findMessagesByConversation(
+    conversationId: string,
+    userId: string,
+  ): Promise<Message[]> {
     // Verify access first
     await this.checkConversationAccess(conversationId, userId);
 
