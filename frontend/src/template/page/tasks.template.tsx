@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 export interface TasksPageTemplateProps {
   tasks: Array<Task & { projectId: string; projectName: string }>;
@@ -167,22 +168,34 @@ export function renderTasksPage(props: TasksPageTemplateProps) {
               )}
             </Button>
             <div className="flex items-center gap-1 border border-border/40 rounded-lg p-1 bg-background">
-              <Button
-                variant={viewMode === "list" ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => onViewModeChange("list")}
-                className="h-8 w-8 p-0"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "grid" ? "primary" : "ghost"}
-                size="sm"
-                onClick={() => onViewModeChange("grid")}
-                className="h-8 w-8 p-0"
-              >
-                <Grid className="h-4 w-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={viewMode === "list" ? "primary" : "ghost"}
+                    size="sm"
+                    onClick={() => onViewModeChange("list")}
+                    className="h-8 w-8 p-0"
+                    aria-label="List view"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>List view</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={viewMode === "grid" ? "primary" : "ghost"}
+                    size="sm"
+                    onClick={() => onViewModeChange("grid")}
+                    className="h-8 w-8 p-0"
+                    aria-label="Grid view"
+                  >
+                    <Grid className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Grid view</TooltipContent>
+              </Tooltip>
             </div>
             <Button
               size="sm"
