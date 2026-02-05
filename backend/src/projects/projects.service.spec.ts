@@ -1,29 +1,44 @@
-// Mock bcrypt before imports to avoid native module load error
-jest.mock('bcrypt', () => ({
-  hash: jest.fn(),
-  compare: jest.fn(),
-  genSalt: jest.fn(),
+jest.mock("bcrypt", () => ({
+  hash: jest.fn().mockResolvedValue("hashed_password"),
+  compare: jest.fn().mockResolvedValue(true),
+  genSalt: jest.fn().mockResolvedValue("salt"),
 }));
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { ProjectsService } from './projects.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Project } from './entities/project.entity';
-import { ProjectMember, ProjectMemberRole } from './entities/project-member.entity';
-import { UsersService } from '../users/users.service';
-import { Repository, In } from 'typeorm';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Test, TestingModule } from "@nestjs/testing";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { ProjectsService } from "./projects.service";
+import { Project } from "./entities/project.entity";
+import {
+  ProjectMember,
+  ProjectMemberRole,
+} from "./entities/project-member.entity";
+import { UsersService } from "../users/users.service";
+import { InviteMembersDto } from "./dto/invite-member.dto";
+import {
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from "@nestjs/common";
 
-const mockProject = {
-  uid: 'proj-123',
-  ownerId: 'owner-1',
-};
-
-describe('ProjectsService', () => {
+describe("ProjectsService", () => {
   let service: ProjectsService;
   let projectRepo: Repository<Project>;
   let memberRepo: Repository<ProjectMember>;
   let usersService: UsersService;
+
+  const mockProject = {
+    uid: "proj-123",
+    ownerId: "user-owner",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as Project;
+
+  const mockInviterMember = {
+    projectUid: "proj-123",
+    userId: "user-owner",
+    role: ProjectMemberRole.OWNER,
+  } as ProjectMember;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -57,61 +72,45 @@ describe('ProjectsService', () => {
     }).compile();
 
     service = module.get<ProjectsService>(ProjectsService);
-    projectRepo = module.get<Repository<Project>>(getRepositoryToken(Project));
-    memberRepo = module.get<Repository<ProjectMember>>(getRepositoryToken(ProjectMember));
+    projectsRepository = module.get<Repository<Project>>(
+      getRepositoryToken(Project),
+    );
+    projectMembersRepository = module.get<Repository<ProjectMember>>(
+      getRepositoryToken(ProjectMember),
+    );
     usersService = module.get<UsersService>(UsersService);
   });
 
-  describe('inviteMembers', () => {
-    it('should use findByIds and bulk save for multiple users', async () => {
-      const projectUid = 'proj-123';
-      const inviterId = 'owner-1';
-      const userIds = ['user-1', 'user-2'];
-      const dto = { userIds, role: ProjectMemberRole.MEMBER };
+  it("should be defined", () => {
+    expect(service).toBeDefined();
+  });
 
-      // Mock project existence
-      (projectRepo.findOne as jest.Mock).mockResolvedValue(mockProject);
-
-      // Mock inviter permissions (owner)
-      // The service checks project.ownerId === inviterId, which is true here.
-
-      // Mock setup
-      jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
-
-      // Mock UsersService.findByIds
-      const mockUsers = [{ id: 'user-1' }, { id: 'user-2' }];
-      jest.spyOn(usersService, 'findByIds').mockResolvedValue(mockUsers as any);
-
-      // Mock existing members check (batch)
-      jest.spyOn(projectMembersRepository, 'find').mockResolvedValue([]);
-
-      // Mock save
-      const mockSavedMembers = [{ id: 'mem-1' }, { id: 'mem-2' }];
-      jest.spyOn(projectMembersRepository, 'create').mockImplementation((dto) => dto as any);
-      jest.spyOn(projectMembersRepository, 'save').mockResolvedValue(mockSavedMembers as any);
-
-      await service.inviteMembers(projectUid, inviteDto, inviterId);
-
-      expect(usersService.findByIds).toHaveBeenCalledWith(['user-1', 'user-2']);
-      expect(projectMembersRepository.find).toHaveBeenCalledTimes(1); // One check for existing members
-      expect(projectMembersRepository.save).toHaveBeenCalledTimes(1); // One bulk save
-    });
-
-    it('should handle partial failures (some users missing)', async () => {
-      const projectUid = 'proj-123';
-      const inviterId = 'user-owner';
+  describe("inviteMembers", () => {
+    it("should call findOne only once for multiple users", async () => {
+      const projectUid = "proj-123";
+      const inviterId = "user-owner";
       const inviteDto: InviteMembersDto = {
-        userIds: ['user-1', 'user-missing'],
+        userIds: ["user-1", "user-2"],
         role: ProjectMemberRole.MEMBER,
       };
 
-      jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
+      // Mock setup
+      jest.spyOn(projectsRepository, "findOne").mockResolvedValue(mockProject);
+      jest.spyOn(projectMembersRepository, "findOne").mockResolvedValue(null); // No existing membership for invitees
+      // Mock inviter permission check (if needed, but owner check passes directly)
 
-      // Mock UsersService.findByIds - only user-1 found
-      const mockUsers = [{ id: 'user-1' }];
-      jest.spyOn(usersService, 'findByIds').mockResolvedValue(mockUsers as any);
+      // Mock user existence check
+      jest
+        .spyOn(usersService, "findOne")
+        .mockResolvedValue({ id: "user-x" } as any);
 
-      jest.spyOn(projectMembersRepository, 'find').mockResolvedValue([]);
+      // Mock save
+      jest
+        .spyOn(projectMembersRepository, "create")
+        .mockReturnValue({} as ProjectMember);
+      jest
+        .spyOn(projectMembersRepository, "save")
+        .mockResolvedValue({} as ProjectMember);
 
       const mockSavedMembers = [{ id: 'mem-1' }];
       jest.spyOn(projectMembersRepository, 'create').mockImplementation((dto) => dto as any);

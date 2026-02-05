@@ -105,7 +105,7 @@ export class ProjectsController {
   @ApiOperation({ summary: "Get tasks by project" })
   async getTasksByProject(@Param("uid") uid: string, @Request() req) {
     try {
-      // Check access to project first
+      // Check access first
       await this.projectsService.findOne(uid, req.user.userId);
 
       const tasks = await this.tasksService.findAll(uid);
@@ -156,8 +156,9 @@ export class ProjectsController {
   // Team Members
   @Get(":uid/members")
   @ApiOperation({ summary: "Get project team members" })
-  getMembers(@Param("uid") uid: string, @Request() req) {
-    return this.projectsService.getProjectMembers(uid, req.user.userId);
+  async getMembers(@Param("uid") uid: string, @Request() req) {
+    await this.projectsService.findOne(uid, req.user.userId);
+    return this.projectsService.getProjectMembers(uid);
   }
 
   @Post(":uid/members/invite")

@@ -1,13 +1,21 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
-import { Project } from './entities/project.entity';
-import { ProjectMember, ProjectMemberRole } from './entities/project-member.entity';
-import { CreateProjectDto } from './dto/create-project.dto';
-import { UpdateProjectDto } from './dto/update-project.dto';
-import { InviteMemberDto, InviteMembersDto } from './dto/invite-member.dto';
-import { UsersService } from '../users/users.service';
-import { v4 as uuidv4 } from 'uuid';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Project } from "./entities/project.entity";
+import {
+  ProjectMember,
+  ProjectMemberRole,
+} from "./entities/project-member.entity";
+import { CreateProjectDto } from "./dto/create-project.dto";
+import { UpdateProjectDto } from "./dto/update-project.dto";
+import { InviteMemberDto, InviteMembersDto } from "./dto/invite-member.dto";
+import { UsersService } from "../users/users.service";
+import { v4 as uuidv4 } from "uuid";
 
 @Injectable()
 export class ProjectsService {
@@ -79,7 +87,7 @@ export class ProjectsService {
 
           if (!member) {
             throw new ForbiddenException(
-              "You do not have permission to access this project",
+              "You do not have access to this project",
             );
           }
         }
@@ -140,7 +148,11 @@ export class ProjectsService {
     });
   }
 
-  async inviteMember(projectUid: string, inviteDto: InviteMemberDto, inviterId: string): Promise<ProjectMember> {
+  async inviteMember(
+    projectUid: string,
+    inviteDto: InviteMemberDto,
+    inviterId: string,
+  ): Promise<ProjectMember> {
     await this.validateInvitePermissions(projectUid, inviterId);
 
     return this.addMemberToProject(
@@ -151,9 +163,13 @@ export class ProjectsService {
     );
   }
 
-  async inviteMembers(projectUid: string, inviteDto: InviteMembersDto, inviterId: string): Promise<ProjectMember[]> {
+  async inviteMembers(
+    projectUid: string,
+    inviteDto: InviteMembersDto,
+    inviterId: string,
+  ): Promise<ProjectMember[]> {
     if (!inviteDto.userIds || inviteDto.userIds.length === 0) {
-      throw new BadRequestException('At least one user ID is required');
+      throw new BadRequestException("At least one user ID is required");
     }
 
     await this.validateInvitePermissions(projectUid, inviterId);
@@ -161,68 +177,45 @@ export class ProjectsService {
     // Dedup IDs
     const uniqueIds = [...new Set(inviteDto.userIds)];
 
-    // 1. Fetch all users
-    const users = await this.usersService.findByIds(uniqueIds);
-    const foundUserIds = users.map(u => u.id);
-
-    // Check for missing users
-    const missingUserIds = uniqueIds.filter(id => !foundUserIds.includes(id));
-    const errors: string[] = missingUserIds.map(id => `User with ID ${id} not found`);
-
-    if (foundUserIds.length === 0) {
-      if (errors.length > 0) {
-        throw new BadRequestException(`Failed to invite any members: ${errors.join('; ')}`);
+    for (const userId of inviteDto.userIds) {
+      try {
+        const member = await this.addMemberToProject(
+          projectUid,
+          userId,
+          inviteDto.role || ProjectMemberRole.MEMBER,
+          inviterId,
+        );
+        results.push(member);
+      } catch (error: any) {
+        // Skip if already member, continue with others
+        if (
+          error instanceof BadRequestException &&
+          error.message.includes("already a member")
+        ) {
+          continue;
+        }
+        // Collect errors but continue processing other users
+        errors.push(
+          `Failed to invite user ${userId}: ${error.message || error}`,
+        );
       }
       return [];
     }
 
-    // 2. Fetch existing members for these users
-    const existingMembers = await this.projectMembersRepository.find({
-      where: {
-        projectUid,
-        userId: In(foundUserIds),
-      },
-    });
-
-    const existingMemberIds = existingMembers.map(m => m.userId);
-
-    // 3. Filter valid new members
-    const newMemberIds = foundUserIds.filter(id => !existingMemberIds.includes(id));
-
-    if (newMemberIds.length === 0) {
-      // Everyone is already a member or missing
-      if (errors.length > 0) {
-        // Mix of missing and existing
-        throw new BadRequestException(`Failed to invite any members: ${errors.join('; ')} (others are already members)`);
-      }
-      return [];
-    }
-
-    // 4. Bulk Create
-    const membersToCreate = newMemberIds.map(userId =>
-      this.projectMembersRepository.create({
-        projectUid,
-        userId,
-        role: inviteDto.role || ProjectMemberRole.MEMBER,
-        invitedById: inviterId,
-      })
-    );
-
-    let savedMembers: ProjectMember[] = [];
-    try {
-      savedMembers = await this.projectMembersRepository.save(membersToCreate);
-    } catch (error: any) {
-      throw new BadRequestException(`Failed to invite members: ${error.message}`);
-    }
-
-    if (savedMembers.length === 0 && errors.length > 0) {
-      throw new BadRequestException(`Failed to invite any members: ${errors.join('; ')}`);
+    // If no users were successfully invited and there were errors, throw
+    if (results.length === 0 && errors.length > 0) {
+      throw new BadRequestException(
+        `Failed to invite any members: ${errors.join("; ")}`,
+      );
     }
 
     return savedMembers;
   }
 
-  private async validateInvitePermissions(projectUid: string, inviterId: string): Promise<void> {
+  private async validateInvitePermissions(
+    projectUid: string,
+    inviterId: string,
+  ): Promise<void> {
     const project = await this.findOne(projectUid);
 
     // Check if inviter is owner or admin
@@ -231,11 +224,10 @@ export class ProjectsService {
     });
 
     if (
-      project.ownerId !== inviterId &&
-      (!inviterMember ||
-        ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(
-          inviterMember.role,
-        ))
+      !inviterMember ||
+      ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(
+        inviterMember.role,
+      )
     ) {
       throw new ForbiddenException(
         "You do not have permission to invite members",
@@ -293,86 +285,6 @@ export class ProjectsService {
       }
       throw error;
     }
-  }
-
-  async inviteMembers(
-    projectUid: string,
-    inviteDto: InviteMembersDto,
-    inviterId: string,
-  ): Promise<ProjectMember[]> {
-    if (!inviteDto.userIds || inviteDto.userIds.length === 0) {
-      throw new BadRequestException("At least one user ID is required");
-    }
-
-    // 1. Get Project and Check Inviter Permissions
-    const project = await this.findOne(projectUid);
-
-    if (project.ownerId !== inviterId) {
-       const inviterMember = await this.projectMembersRepository.findOne({
-          where: { projectUid, userId: inviterId },
-        });
-        if (!inviterMember || ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(inviterMember.role)) {
-           throw new ForbiddenException('You do not have permission to invite members');
-        }
-    }
-
-    const results: ProjectMember[] = [];
-    const errors: string[] = [];
-    
-    // 2. Fetch all valid users
-    const distinctUserIds = [...new Set(inviteDto.userIds)];
-    const foundUsers = await this.usersService.findByIds(distinctUserIds);
-    const foundUserIds = new Set(foundUsers.map(u => u.id));
-
-    // 3. Fetch existing members for these users
-    const existingMembers = await this.projectMembersRepository.find({
-        where: {
-            projectUid,
-            userId: In(distinctUserIds)
-        }
-    });
-    const existingMemberUserIds = new Set(existingMembers.map(m => m.userId));
-
-    const newMembersToSave: ProjectMember[] = [];
-
-    // 4. Process each user
-    for (const userId of distinctUserIds) {
-        if (!foundUserIds.has(userId)) {
-             errors.push(`Failed to invite user ${userId}: User with ID ${userId} not found`);
-             continue;
-        }
-        if (existingMemberUserIds.has(userId)) {
-             // Skip silently as per previous logic
-             continue;
-        }
-
-        const member = this.projectMembersRepository.create({
-            projectUid,
-            userId,
-            role: inviteDto.role || ProjectMemberRole.MEMBER,
-            invitedById: inviterId,
-        });
-        newMembersToSave.push(member);
-    }
-
-    // 5. Bulk Save
-    if (newMembersToSave.length > 0) {
-        try {
-            const saved = await this.projectMembersRepository.save(newMembersToSave);
-            results.push(...saved);
-        } catch (error: any) {
-             errors.push(`Bulk save failed: ${error.message}`);
-        }
-    }
-
-    // If no users were successfully invited and there were errors, throw
-    if (results.length === 0 && errors.length > 0) {
-      throw new BadRequestException(
-        `Failed to invite any members: ${errors.join("; ")}`,
-      );
-    }
-
-    return [];
   }
 
   async removeMember(
