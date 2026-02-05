@@ -69,20 +69,20 @@ describe('MessagesService', () => {
     service = module.get<MessagesService>(MessagesService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('findAllConversations', () => {
-    it('should return conversations with avatar for direct messages', async () => {
-      const userId = 'user-1';
-      const otherUserId = 'user-2';
+  describe("findAllConversations", () => {
+    it("should return conversations with avatar for direct messages", async () => {
+      const userId = "user-1";
+      const otherUserId = "user-2";
 
       const mockConversations = [
         {
-          id: 'conv-1',
-          name: '', // Empty name to trigger auto-generation
-          type: 'direct',
+          id: "conv-1",
+          name: "", // Empty name to trigger auto-generation
+          type: "direct",
           participantIds: [userId, otherUserId],
           unreadCount: 0,
           isPinned: false,
@@ -94,14 +94,24 @@ describe('MessagesService', () => {
       ];
 
       // Mock conversation query
-      conversationsRepository.createQueryBuilder().getMany.mockResolvedValue(mockConversations);
+      conversationsRepository
+        .createQueryBuilder()
+        .getMany.mockResolvedValue(mockConversations);
 
       // Mock user lookup
       (usersService.findOne as jest.Mock).mockImplementation((id) => {
         if (id === userId) {
-          return Promise.resolve({ id: userId, name: 'Current User', avatar: 'my-avatar.png' });
+          return Promise.resolve({
+            id: userId,
+            name: "Current User",
+            avatar: "my-avatar.png",
+          });
         } else if (id === otherUserId) {
-          return Promise.resolve({ id: otherUserId, name: 'Other User', avatar: 'other-avatar.png' });
+          return Promise.resolve({
+            id: otherUserId,
+            name: "Other User",
+            avatar: "other-avatar.png",
+          });
         }
         return Promise.resolve(null);
       });
@@ -112,19 +122,19 @@ describe('MessagesService', () => {
       const result = results[0];
 
       // Check if avatar is set correctly for direct message
-      expect(result.avatar).toBe('other-avatar.png');
-      expect(result.name).toBe('Other User');
+      expect(result.avatar).toBe("other-avatar.png");
+      expect(result.name).toBe("Other User");
     });
 
-    it('should return undefined avatar for group conversations', async () => {
-      const userId = 'user-1';
+    it("should return undefined avatar for group conversations", async () => {
+      const userId = "user-1";
 
       const mockConversations = [
         {
-          id: 'conv-group',
-          name: 'My Group',
-          type: 'group',
-          participantIds: [userId, 'user-2', 'user-3'],
+          id: "conv-group",
+          name: "My Group",
+          type: "group",
+          participantIds: [userId, "user-2", "user-3"],
           unreadCount: 0,
           isPinned: false,
           isArchived: false,
@@ -135,10 +145,16 @@ describe('MessagesService', () => {
       ];
 
       // Mock conversation query
-      conversationsRepository.createQueryBuilder().getMany.mockResolvedValue(mockConversations);
+      conversationsRepository
+        .createQueryBuilder()
+        .getMany.mockResolvedValue(mockConversations);
 
       // Mock user lookup
-      (usersService.findOne as jest.Mock).mockResolvedValue({ id: 'any', name: 'User', avatar: 'avatar.png' });
+      (usersService.findOne as jest.Mock).mockResolvedValue({
+        id: "any",
+        name: "User",
+        avatar: "avatar.png",
+      });
 
       const results = await service.findAllConversations(userId);
 

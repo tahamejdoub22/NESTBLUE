@@ -9,7 +9,16 @@ import { User } from './entities/user.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-describe('UsersService', () => {
+const mockUsersRepository = {
+  create: jest.fn(),
+  save: jest.fn(),
+  find: jest.fn(),
+  findOne: jest.fn(),
+  update: jest.fn(),
+  remove: jest.fn(),
+};
+
+describe("UsersService", () => {
   let service: UsersService;
   let repository: Repository<User>;
 
@@ -19,7 +28,7 @@ describe('UsersService', () => {
         UsersService,
         {
           provide: getRepositoryToken(User),
-          useClass: Repository,
+          useValue: mockUsersRepository,
         },
       ],
     }).compile();
@@ -28,7 +37,22 @@ describe('UsersService', () => {
     repository = module.get<Repository<User>>(getRepositoryToken(User));
   });
 
-  it('should be defined', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should be defined", () => {
     expect(service).toBeDefined();
+  });
+
+  describe('findByIds', () => {
+    it('should return an array of users', async () => {
+      const users = [new User(), new User()];
+      jest.spyOn(repository, 'findBy').mockResolvedValue(users);
+
+      const result = await service.findByIds(['1', '2']);
+      expect(result).toEqual(users);
+      expect(repository.findBy).toHaveBeenCalled();
+    });
   });
 });

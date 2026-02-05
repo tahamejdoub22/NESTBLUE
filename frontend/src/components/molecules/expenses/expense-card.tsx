@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms";
 import { Badge } from "@/components/atoms";
-import { Button } from "@/components/atoms";
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms";
 import { Pencil, Trash2, Repeat, Calendar, FolderKanban, Receipt, CheckCircle2, XCircle } from "lucide-react";
 import type { Expense } from "@/interfaces";
 import { CURRENCIES, COST_CATEGORIES } from "@/core/config/constants";
@@ -117,30 +117,46 @@ export function ExpenseCard({ expense, onEdit, onDelete, delay = 0 }: ExpenseCar
           </div>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
             {onEdit && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 hover:bg-muted"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(expense);
-                }}
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Edit expense"
+                    className="h-7 w-7 hover:bg-muted"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(expense);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Edit expense</p>
+                </TooltipContent>
+              </Tooltip>
             )}
             {onDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(expense.id);
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Delete expense"
+                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(expense.id);
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Delete expense</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         </CardHeader>

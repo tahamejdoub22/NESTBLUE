@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, MoreThanOrEqual } from 'typeorm';
+import { Repository, In, MoreThanOrEqual, Brackets } from 'typeorm';
 import { Project } from '../projects/entities/project.entity';
 import { Task, TaskStatus, TaskPriority } from '../tasks/entities/task.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
@@ -35,35 +35,41 @@ export class DashboardService {
     try {
       // Get all projects (for now, get all projects regardless of owner)
       // In production, filter by userId when ownerId field exists
-      const projects = await this.projectsRepository.find({
-        relations: ['tasks', 'members'],
-      }).catch(() => []);
+      const projects = await this.projectsRepository
+        .find({
+          relations: ["tasks", "members"],
+        })
+        .catch(() => []);
 
       // Get all tasks
-      const allTasks = await this.tasksRepository.find({
-        relations: ['project', 'createdBy', 'subtasks', 'comments'],
-      }).catch(() => []);
+      const allTasks = await this.tasksRepository
+        .find({
+          relations: ["project", "createdBy", "subtasks", "comments"],
+        })
+        .catch(() => []);
 
       // Get active sprints and ensure their counts are true
-      const activeSprints = await this.sprintsRepository.find({
-        where: { status: 'active' as any },
-        relations: ['project'],
-      }).catch(() => []);
+      const activeSprints = await this.sprintsRepository
+        .find({
+          where: { status: "active" as any },
+          relations: ["project"],
+        })
+        .catch(() => []);
 
       // Optimization: Get task counts for all active sprints in one query using database aggregation
       const sprintIds = activeSprints.map((s) => s.id);
 
       if (sprintIds.length > 0) {
         const counts = await this.tasksRepository
-          .createQueryBuilder('task')
-          .select('task.sprintId', 'sprintId')
-          .addSelect('COUNT(task.uid)', 'count')
+          .createQueryBuilder("task")
+          .select("task.sprintId", "sprintId")
+          .addSelect("COUNT(task.uid)", "count")
           .addSelect(
             "SUM(CASE WHEN task.status = 'complete' THEN 1 ELSE 0 END)",
-            'completedCount',
+            "completedCount",
           )
-          .where('task.sprintId IN (:...sprintIds)', { sprintIds })
-          .groupBy('task.sprintId')
+          .where("task.sprintId IN (:...sprintIds)", { sprintIds })
+          .groupBy("task.sprintId")
           .getRawMany();
 
         const countMap = new Map(
@@ -99,31 +105,46 @@ export class DashboardService {
       }
 
       // Get team members (all users for now)
-      const teamMembers = await this.usersRepository.find({
-        select: ['id', 'name', 'email', 'avatar', 'role', 'status', 'createdAt', 'updatedAt'],
-      }).catch(() => []);
+      const teamMembers = await this.usersRepository
+        .find({
+          select: [
+            "id",
+            "name",
+            "email",
+            "avatar",
+            "role",
+            "status",
+            "createdAt",
+            "updatedAt",
+          ],
+        })
+        .catch(() => []);
 
       // Calculate workspace overview
       const healthScore = this.calculateHealthScore(projects, allTasks);
-      
+
       // Calculate health trend based on project progress and task completion
       let totalProgress = 0;
       for (const p of projects) {
         totalProgress += p.progress || 0;
       }
-      const avgProgress = projects.length > 0 ? totalProgress / projects.length : 0;
-      const completionRate = allTasks.length > 0
-        ? (allTasks.filter((t) => t.status === 'complete').length / allTasks.length) * 100
-        : 0;
-      
+      const avgProgress =
+        projects.length > 0 ? totalProgress / projects.length : 0;
+      const completionRate =
+        allTasks.length > 0
+          ? (allTasks.filter((t) => t.status === "complete").length /
+              allTasks.length) *
+            100
+          : 0;
+
       // Determine trend: up if health score > 70, stable if 50-70, down if < 50
-      let healthTrend: 'up' | 'down' | 'stable' = 'stable';
+      let healthTrend: "up" | "down" | "stable" = "stable";
       if (healthScore >= 70) {
-        healthTrend = 'up';
+        healthTrend = "up";
       } else if (healthScore < 50) {
-        healthTrend = 'down';
+        healthTrend = "down";
       }
-      
+
       const workspaceOverview = {
         totalProjects: projects.length,
         activeSprints: activeSprints.length,
@@ -139,13 +160,20 @@ export class DashboardService {
       const taskInsights = this.calculateTaskInsights(allTasks);
 
       // Calculate timeline snapshot
-      const timelineSnapshot = this.calculateTimelineSnapshot(projects, allTasks, activeSprints);
+      const timelineSnapshot = this.calculateTimelineSnapshot(
+        projects,
+        allTasks,
+        activeSprints,
+      );
 
       // Get user activity (from notifications or create from tasks)
       const userActivity = await this.getUserActivity(userId);
 
       // Calculate user contributions
-      const userContributions = this.calculateUserContributions(allTasks, teamMembers);
+      const userContributions = this.calculateUserContributions(
+        allTasks,
+        teamMembers,
+      );
 
       // Calculate budget and cost metrics
       const budgetCostMetrics = await this.calculateBudgetCostMetrics(projects);
@@ -158,16 +186,20 @@ export class DashboardService {
       // Transform projects to DashboardProject format
       const dashboardProjects = projects.map((project) => ({
         id: project.uid, // Use uid as id for frontend compatibility
-        name: project.name || '',
-        description: project.description || '',
-        status: project.status || 'active',
+        name: project.name || "",
+        description: project.description || "",
+        status: project.status || "active",
         progress: project.progress || 0,
         taskCount: project.tasks?.length || 0,
-        completedTaskCount: project.tasks?.filter((t) => t?.status === 'complete').length || 0,
+        completedTaskCount:
+          project.tasks?.filter((t) => t?.status === "complete").length || 0,
         teamMemberIds: project.members?.map((m) => m.userId) || [],
-        color: project.color || '#6366f1',
-        icon: project.icon || 'folder',
-        budget: this.calculateProjectBudget(project.uid, projectBudgetMap.get(project.uid)),
+        color: project.color || "#6366f1",
+        icon: project.icon || "folder",
+        budget: this.calculateProjectBudget(
+          project.uid,
+          projectBudgetMap.get(project.uid),
+        ),
         startDate: project.startDate || null,
         endDate: project.endDate || null,
         createdAt: project.createdAt || new Date(),
@@ -177,12 +209,12 @@ export class DashboardService {
       // Transform sprints
       const dashboardSprints = activeSprints.map((sprint) => ({
         id: sprint.id,
-        name: sprint.name || '',
+        name: sprint.name || "",
         projectId: sprint.projectId || null,
         startDate: sprint.startDate || null,
         endDate: sprint.endDate || null,
-        status: sprint.status || 'active',
-        goal: sprint.goal || '',
+        status: sprint.status || "active",
+        goal: sprint.goal || "",
         taskCount: sprint.taskCount || 0,
         completedTaskCount: sprint.completedTaskCount || 0,
         createdAt: sprint.createdAt || new Date(),
@@ -192,12 +224,16 @@ export class DashboardService {
       // Transform team members
       const dashboardTeamMembers = teamMembers.map((member) => ({
         id: member.id,
-        name: member.name || 'Unknown',
-        email: member.email || '',
+        name: member.name || "Unknown",
+        email: member.email || "",
         avatar: member.avatar || null,
-        role: member.role || 'member',
-        status: member.status === 'online' ? 'active' : (member.status as any) || 'inactive',
-        taskCount: allTasks.filter((t) => t.assigneeIds?.includes(member.id)).length,
+        role: member.role || "member",
+        status:
+          member.status === "online"
+            ? "active"
+            : (member.status as any) || "inactive",
+        taskCount: allTasks.filter((t) => t.assigneeIds?.includes(member.id))
+          .length,
         createdAt: member.createdAt || new Date(),
         updatedAt: member.updatedAt || new Date(),
       }));
@@ -215,126 +251,98 @@ export class DashboardService {
         teamMembers: dashboardTeamMembers,
       };
     } catch (error) {
-      console.error('Error in getDashboardData:', error);
-      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+      console.error("Error in getDashboardData:", error);
+      console.error(
+        "Error stack:",
+        error instanceof Error ? error.stack : "No stack",
+      );
       throw error;
     }
   }
 
-  async getMonthlyProjectOverview(userId: string, period: 'week' | 'month' | 'year' = 'month') {
+  async getMonthlyProjectOverview(
+    userId: string,
+    period: "week" | "month" | "year" = "month",
+  ) {
     try {
-      // Get all projects
-      const projects = await this.projectsRepository.find().catch(() => []);
-      console.log(`[ProjectOverview] Found ${projects.length} projects`);
-
-      // Get all tasks with projectId to ensure we capture all tasks
-      const allTasks = await this.tasksRepository.find({
-        relations: ['project'],
-      }).catch(() => []);
-      console.log(`[ProjectOverview] Found ${allTasks.length} total tasks`);
-
-      // Group tasks by projectId for easier lookup
-      const tasksByProjectId: { [key: string]: Task[] } = {};
-      allTasks.forEach((task) => {
-        if (task.projectId) {
-          if (!tasksByProjectId[task.projectId]) {
-            tasksByProjectId[task.projectId] = [];
-          }
-          tasksByProjectId[task.projectId].push(task);
-        }
-      });
+      // Optimization: Fetch only project count instead of all project entities
+      const projectCount = await this.projectsRepository.count().catch(() => 0);
       
-      console.log(`[ProjectOverview] Tasks grouped by project:`, Object.keys(tasksByProjectId).map(pid => ({
-        projectId: pid,
-        taskCount: tasksByProjectId[pid].length
-      })));
-
       const now = new Date();
-      const months: { month: string; completed: number; total: number; isProjected?: boolean; isHighlighted?: boolean }[] = [];
-      
+      const months: {
+        month: string;
+        completed: number;
+        total: number;
+        isProjected?: boolean;
+        isHighlighted?: boolean;
+      }[] = [];
+
       // Determine number of months to show based on period
       let monthsToShow = 5; // Default: last 5 months
-      if (period === 'week') {
+      if (period === "week") {
         monthsToShow = 1; // Show current month only for week view
-      } else if (period === 'year') {
+      } else if (period === "year") {
         monthsToShow = 12; // Show last 12 months for year view
       }
 
       // Generate monthly data
       for (let i = monthsToShow - 1; i >= 0; i--) {
         const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthKey = date.toLocaleDateString('en-US', { month: 'short' });
+        const monthKey = date.toLocaleDateString("en-US", { month: "short" });
         const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-        const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
-        
+        const monthEnd = new Date(
+          date.getFullYear(),
+          date.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+        );
+
         // Check if this is a future month
         const isProjected = date > now;
-        const isCurrentMonth = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+        const isCurrentMonth =
+          date.getMonth() === now.getMonth() &&
+          date.getFullYear() === now.getFullYear();
 
         let completed = 0;
         let total = 0;
 
         if (!isProjected) {
           if (isCurrentMonth) {
-            // For current month: Show ALL tasks from ALL projects (regardless of creation date)
-            projects.forEach((project) => {
-              const projectTasks = tasksByProjectId[project.uid] || [];
-              total += projectTasks.length;
-              completed += projectTasks.filter(t => t.status === 'complete').length;
-            });
-            
-            // Also count standalone tasks (no projectId)
-            allTasks.forEach((task) => {
-              if (!task.projectId) {
-                total++;
-                if (task.status === 'complete') {
-                  completed++;
-                }
-              }
-            });
+            // For current month: Total of ALL tasks and ALL completed tasks
+            [total, completed] = await Promise.all([
+              this.tasksRepository.count(),
+              this.tasksRepository.count({ where: { status: TaskStatus.COMPLETE } })
+            ]);
             
             // If no tasks but projects exist, show at least 1 to indicate projects exist
-            if (total === 0 && projects.length > 0) {
+            if (total === 0 && projectCount > 0) {
               total = 1;
             }
           } else {
-            // For past months: Show tasks created or completed in that month
-            projects.forEach((project) => {
-              const projectTasks = tasksByProjectId[project.uid] || [];
-              projectTasks.forEach((task) => {
-                const taskCreatedDate = task.createdAt ? new Date(task.createdAt) : null;
-                const taskUpdatedDate = task.updatedAt ? new Date(task.updatedAt) : null;
-                
-                // Task was created in this month
-                if (taskCreatedDate && taskCreatedDate >= monthStart && taskCreatedDate <= monthEnd) {
-                  total++;
-                  if (task.status === 'complete') {
-                    completed++;
-                  }
-                }
-                // Task was completed in this month (even if created earlier)
-                else if (task.status === 'complete' && taskUpdatedDate && taskUpdatedDate >= monthStart && taskUpdatedDate <= monthEnd) {
-                  total++;
-                  completed++;
-                }
-              });
-            });
+            // For past months:
+            // Total = Created In Month OR (Complete AND Updated In Month)
+            // Completed = Complete AND (Created In Month OR Updated In Month)
             
-            // Count standalone tasks created/updated in this month
-            allTasks.forEach((task) => {
-              if (!task.projectId) {
-                const taskDate = task.createdAt || task.updatedAt || new Date();
-                if (taskDate >= monthStart && taskDate <= monthEnd) {
-                  total++;
-                  if (task.status === 'complete') {
-                    completed++;
-                  }
-                }
-              }
-            });
+            // Optimization: Use count queries instead of fetching entities
+            total = await this.tasksRepository.createQueryBuilder('task')
+              .where(new Brackets(qb => {
+                qb.where('task.createdAt BETWEEN :start AND :end', { start: monthStart, end: monthEnd })
+                  .orWhere('task.status = :status AND task.updatedAt BETWEEN :start AND :end', { status: TaskStatus.COMPLETE, start: monthStart, end: monthEnd });
+              }))
+              .getCount();
+
+            completed = await this.tasksRepository.createQueryBuilder('task')
+              .where('task.status = :status', { status: TaskStatus.COMPLETE })
+              .andWhere(new Brackets(qb => {
+                qb.where('task.createdAt BETWEEN :start AND :end', { start: monthStart, end: monthEnd })
+                  .orWhere('task.updatedAt BETWEEN :start AND :end', { start: monthStart, end: monthEnd });
+              }))
+              .getCount();
           }
         }
-        
+
         months.push({
           month: monthKey,
           completed: completed || 0,
@@ -344,49 +352,9 @@ export class DashboardService {
         });
       }
 
-      // If no data at all but projects exist, ensure we show data
-      const hasAnyData = months.some(m => m.total > 0);
-      console.log(`[ProjectOverview] Has any data: ${hasAnyData}, Projects: ${projects.length}, Tasks: ${allTasks.length}`);
-      
-      // Final check: ensure current month has data if projects exist
-      if (projects.length > 0) {
-        const currentMonthKey = now.toLocaleDateString('en-US', { month: 'short' });
-        const currentMonthIndex = months.findIndex(m => m.month === currentMonthKey);
-        if (currentMonthIndex >= 0 && months[currentMonthIndex].total === 0) {
-          // Double-check: count all tasks one more time
-          let finalTotal = 0;
-          let finalCompleted = 0;
-          
-          projects.forEach((project) => {
-            const projectTasks = tasksByProjectId[project.uid] || [];
-            finalTotal += projectTasks.length;
-            finalCompleted += projectTasks.filter(t => t.status === 'complete').length;
-          });
-          
-          allTasks.forEach((task) => {
-            if (!task.projectId) {
-              finalTotal++;
-              if (task.status === 'complete') {
-                finalCompleted++;
-              }
-            }
-          });
-          
-          // If still no tasks, show at least 1 to indicate projects exist
-          if (finalTotal === 0) {
-            finalTotal = 1;
-          }
-          
-          months[currentMonthIndex].total = finalTotal;
-          months[currentMonthIndex].completed = finalCompleted;
-          console.log(`[ProjectOverview] Final current month data: ${finalTotal} total, ${finalCompleted} completed`);
-        }
-      }
-
-      console.log(`[ProjectOverview] Returning ${months.length} months of data:`, months.map(m => `${m.month}: ${m.total} total, ${m.completed} completed`));
       return months;
     } catch (error) {
-      console.error('Error in getMonthlyProjectOverview:', error);
+      console.error("Error in getMonthlyProjectOverview:", error);
       return [];
     }
   }
@@ -395,7 +363,7 @@ export class DashboardService {
     const where = projectId ? { projectId } : {};
     const tasks = await this.tasksRepository.find({
       where,
-      relations: ['project'],
+      relations: ["project"],
     });
 
     return this.calculateProjectStatistics(tasks);
@@ -407,24 +375,33 @@ export class DashboardService {
     }
 
     // Calculate task-based health
-    const completedTasks = tasks.filter((t) => t.status === 'complete').length;
+    const completedTasks = tasks.filter((t) => t.status === "complete").length;
     const totalTasks = tasks.length;
-    const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 50;
+    const completionRate =
+      totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 50;
 
     const overdueTasks = tasks.filter(
-      (t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'complete',
+      (t) =>
+        t.dueDate &&
+        new Date(t.dueDate) < new Date() &&
+        t.status !== "complete",
     ).length;
     const overdueRate = totalTasks > 0 ? (overdueTasks / totalTasks) * 100 : 0;
 
     // Calculate project-based health
-    const activeProjects = projects.filter((p) => p.status === 'active').length;
+    const activeProjects = projects.filter((p) => p.status === "active").length;
     const totalProjects = projects.length;
-    const projectHealth = totalProjects > 0 ? (activeProjects / totalProjects) * 100 : 50;
+    const projectHealth =
+      totalProjects > 0 ? (activeProjects / totalProjects) * 100 : 50;
 
     // Average project progress
-    const avgProjectProgress = projects.length > 0
-      ? projects.reduce((sum: number, p: Project) => sum + (p.progress || 0), 0) / projects.length
-      : 0;
+    const avgProjectProgress =
+      projects.length > 0
+        ? projects.reduce(
+            (sum: number, p: Project) => sum + (p.progress || 0),
+            0,
+          ) / projects.length
+        : 0;
 
     // Combined health score: 40% completion, 30% project health, 20% progress, 10% penalty for overdue
     const taskHealth = completionRate * 0.4;
@@ -432,41 +409,50 @@ export class DashboardService {
     const progressScore = avgProjectProgress * 0.2;
     const overduePenalty = overdueRate * 0.1;
 
-    const healthScore = taskHealth + projectHealthScore + progressScore - overduePenalty;
-    
+    const healthScore =
+      taskHealth + projectHealthScore + progressScore - overduePenalty;
+
     // Ensure score is between 0 and 100
     return Math.max(0, Math.min(100, Math.round(healthScore)));
   }
 
   private calculateProjectStatistics(tasks: Task[]) {
     const totalTasks = tasks.length;
-    const completedTasks = tasks.filter((t) => t.status === 'complete').length;
-    const inProgressTasks = tasks.filter((t) => t.status === 'in-progress').length;
-    const todoTasks = tasks.filter((t) => t.status === 'todo').length;
-    
+    const completedTasks = tasks.filter((t) => t.status === "complete").length;
+    const inProgressTasks = tasks.filter(
+      (t) => t.status === "in-progress",
+    ).length;
+    const todoTasks = tasks.filter((t) => t.status === "todo").length;
+
     // Calculate progress percentage: completed + 50% of in-progress
-    const progressPercentage = totalTasks > 0 
-      ? Math.round(((completedTasks + (inProgressTasks * 0.5)) / totalTasks) * 100)
-      : 0;
-    
+    const progressPercentage =
+      totalTasks > 0
+        ? Math.round(
+            ((completedTasks + inProgressTasks * 0.5) / totalTasks) * 100,
+          )
+        : 0;
+
     // Ensure progress is between 0 and 100
-    const safeProgressPercentage = Math.max(0, Math.min(100, progressPercentage));
+    const safeProgressPercentage = Math.max(
+      0,
+      Math.min(100, progressPercentage),
+    );
 
     // Generate burn-down data (last 14 days)
     const burnDownData = this.generateBurnDownData(tasks);
 
     const taskDistribution = {
       todo: todoTasks,
-      'in-progress': inProgressTasks,
+      "in-progress": inProgressTasks,
       complete: completedTasks,
-      backlog: tasks.filter((t) => t.status === 'backlog').length,
+      backlog: tasks.filter((t) => t.status === "backlog").length,
     };
 
     const priorityAnalysis = {
-      low: tasks.filter((t) => t.priority === 'low').length,
-      medium: tasks.filter((t) => t.priority === 'medium').length,
-      high: tasks.filter((t) => t.priority === 'high').length,
-      urgent: tasks.filter((t) => t.priority === 'urgent').length,
+      low: tasks.filter((t) => t.priority === "low").length,
+      medium: tasks.filter((t) => t.priority === "medium").length,
+      high: tasks.filter((t) => t.priority === "high").length,
+      urgent: tasks.filter((t) => t.priority === "urgent").length,
     };
 
     return {
@@ -487,7 +473,10 @@ export class DashboardService {
     nextWeek.setDate(nextWeek.getDate() + 7);
 
     const overdueTasks = tasks
-      .filter((t) => t?.dueDate && new Date(t.dueDate) < now && t?.status !== 'complete')
+      .filter(
+        (t) =>
+          t?.dueDate && new Date(t.dueDate) < now && t?.status !== "complete",
+      )
       .slice(0, 10)
       .map((t) => this.transformTask(t))
       .filter((t) => t !== null);
@@ -498,15 +487,17 @@ export class DashboardService {
           t?.dueDate &&
           new Date(t.dueDate) >= now &&
           new Date(t.dueDate) <= nextWeek &&
-          t?.status !== 'complete',
+          t?.status !== "complete",
       )
       .slice(0, 10)
       .map((t) => this.transformTask(t))
       .filter((t) => t !== null);
 
     const recentlyCompleted = tasks
-      .filter((t) => t?.status === 'complete')
-      .sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0))
+      .filter((t) => t?.status === "complete")
+      .sort(
+        (a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0),
+      )
       .slice(0, 5)
       .map((t) => this.transformTask(t))
       .filter((t) => t !== null);
@@ -522,7 +513,11 @@ export class DashboardService {
     };
   }
 
-  private calculateTimelineSnapshot(projects: Project[], tasks: Task[], sprints: Sprint[]) {
+  private calculateTimelineSnapshot(
+    projects: Project[],
+    tasks: Task[],
+    sprints: Sprint[],
+  ) {
     const now = new Date();
     const upcomingDeadlines = [];
 
@@ -535,8 +530,9 @@ export class DashboardService {
           title: sprint.name,
           date: endDate,
           projectId: sprint.projectId,
-          projectName: projects.find((p) => p.uid === sprint.projectId)?.name || 'Unknown',
-          type: 'sprint' as const,
+          projectName:
+            projects.find((p) => p.uid === sprint.projectId)?.name || "Unknown",
+          type: "sprint" as const,
         });
       }
     });
@@ -555,10 +551,11 @@ export class DashboardService {
           id: task.uid,
           title: task.title,
           date: dueDate,
-          projectId: task.projectId || '',
-          projectName: projects.find((p) => p.uid === task.projectId)?.name || 'Unknown',
+          projectId: task.projectId || "",
+          projectName:
+            projects.find((p) => p.uid === task.projectId)?.name || "Unknown",
           taskId: task.uid,
-          type: 'task' as const,
+          type: "task" as const,
         });
       });
 
@@ -569,7 +566,7 @@ export class DashboardService {
     });
 
     const blockedTasks = tasks
-      .filter((t) => t?.status === 'todo' && t?.priority === 'urgent')
+      .filter((t) => t?.status === "todo" && t?.priority === "urgent")
       .slice(0, 5)
       .map((t) => this.transformTask(t))
       .filter((t) => t !== null);
@@ -585,9 +582,9 @@ export class DashboardService {
       // Get recent notifications as activity
       const notifications = await this.notificationsRepository.find({
         where: { userId },
-        order: { createdAt: 'DESC' },
+        order: { createdAt: "DESC" },
         take: 20,
-        relations: ['user', 'project', 'task'],
+        relations: ["user", "project", "task"],
       });
 
       // Extract unique project IDs and task IDs
@@ -611,14 +608,14 @@ export class DashboardService {
       if (projectIds.length > 0) {
         projects = await this.projectsRepository.find({
           where: { uid: In(projectIds) },
-          select: ['uid', 'name'],
+          select: ["uid", "name"],
         });
       }
 
       if (taskIds.length > 0) {
         tasks = await this.tasksRepository.find({
           where: { uid: In(taskIds) },
-          select: ['uid', 'title'],
+          select: ["uid", "title"],
         });
       }
 
@@ -629,23 +626,23 @@ export class DashboardService {
       return notifications.map((notif) => ({
         id: notif.id,
         userId: notif.userId,
-        userName: notif.user?.name || 'Unknown User',
+        userName: notif.user?.name || "Unknown User",
         userAvatar: notif.user?.avatar || null,
         type: this.mapNotificationTypeToActivityType(notif.type),
-        description: notif.message || '',
+        description: notif.message || "",
         projectId: notif.projectId || null,
         projectName: notif.projectId
-          ? projectMap.get(notif.projectId) || 'Unknown Project'
+          ? projectMap.get(notif.projectId) || "Unknown Project"
           : undefined,
         taskId: notif.taskId || null,
         taskTitle: notif.taskId
-          ? taskMap.get(notif.taskId) || 'Unknown Task'
+          ? taskMap.get(notif.taskId) || "Unknown Task"
           : undefined,
         createdAt: notif.createdAt,
         updatedAt: notif.updatedAt,
       }));
     } catch (error) {
-      console.error('Error getting user activity:', error);
+      console.error("Error getting user activity:", error);
       // Return empty array if there's an error
       return [];
     }
@@ -654,29 +651,37 @@ export class DashboardService {
   private calculateUserContributions(tasks: Task[], users: User[]) {
     return users.map((user) => {
       const userTasks = tasks.filter((t) => t.assigneeIds?.includes(user.id));
-      const completedTasks = userTasks.filter((t) => t?.status === 'complete');
+      const completedTasks = userTasks.filter((t) => t?.status === "complete");
       const createdTasks = tasks.filter((t) => t.createdById === user.id);
       const comments = tasks.reduce(
-        (sum, t) => sum + (t.comments?.filter((c) => c?.authorId === user.id).length || 0),
+        (sum, t) =>
+          sum +
+          (t.comments?.filter((c) => c?.authorId === user.id).length || 0),
         0,
       );
 
       return {
         userId: user.id,
-        userName: user.name || 'Unknown',
+        userName: user.name || "Unknown",
         userAvatar: user.avatar || null,
         tasksCompleted: completedTasks.length,
         tasksCreated: createdTasks.length,
         commentsAdded: comments,
-        totalPoints: completedTasks.length * 5 + createdTasks.length * 3 + comments,
+        totalPoints:
+          completedTasks.length * 5 + createdTasks.length * 3 + comments,
       };
     });
   }
 
-  private async calculatePerformanceMetrics(projects: Project[], tasks: Task[], sprints: Sprint[]) {
-    const completedTasks = tasks.filter((t) => t.status === 'complete');
+  private async calculatePerformanceMetrics(
+    projects: Project[],
+    tasks: Task[],
+    sprints: Sprint[],
+  ) {
+    const completedTasks = tasks.filter((t) => t.status === "complete");
     const totalTasks = tasks.length;
-    const completionRate = totalTasks > 0 ? (completedTasks.length / totalTasks) * 100 : 0;
+    const completionRate =
+      totalTasks > 0 ? (completedTasks.length / totalTasks) * 100 : 0;
 
     // Calculate average completion time (for completed tasks with dates)
     const tasksWithCompletionTime = completedTasks
@@ -687,29 +692,36 @@ export class DashboardService {
         return (completed - created) / (1000 * 60 * 60 * 24); // days
       });
 
-    const avgCompletionTime = tasksWithCompletionTime.length > 0
-      ? tasksWithCompletionTime.reduce((a, b) => a + b, 0) / tasksWithCompletionTime.length
-      : 0;
+    const avgCompletionTime =
+      tasksWithCompletionTime.length > 0
+        ? tasksWithCompletionTime.reduce((a, b) => a + b, 0) /
+          tasksWithCompletionTime.length
+        : 0;
 
     // Calculate on-time delivery rate
-    const tasksWithDueDate = tasks.filter((t) => t.dueDate && t.status === 'complete');
+    const tasksWithDueDate = tasks.filter(
+      (t) => t.dueDate && t.status === "complete",
+    );
     const onTimeTasks = tasksWithDueDate.filter((t) => {
       const dueDate = new Date(t.dueDate!).getTime();
       const completedDate = new Date(t.updatedAt!).getTime();
       return completedDate <= dueDate;
     });
-    const onTimeRate = tasksWithDueDate.length > 0
-      ? (onTimeTasks.length / tasksWithDueDate.length) * 100
-      : 0;
+    const onTimeRate =
+      tasksWithDueDate.length > 0
+        ? (onTimeTasks.length / tasksWithDueDate.length) * 100
+        : 0;
 
     // Calculate sprint velocity (tasks completed per sprint)
     const activeSprintTasks = tasks.filter((t) => {
       // Check if task belongs to an active sprint's project
       return sprints.some((s) => s.projectId === t.projectId);
     });
-    const sprintVelocity = sprints.length > 0
-      ? activeSprintTasks.filter((t) => t.status === 'complete').length / sprints.length
-      : 0;
+    const sprintVelocity =
+      sprints.length > 0
+        ? activeSprintTasks.filter((t) => t.status === "complete").length /
+          sprints.length
+        : 0;
 
     return {
       completionRate: Math.round(completionRate * 10) / 10,
@@ -721,47 +733,53 @@ export class DashboardService {
 
   private async calculateBudgetCostMetrics(projects: Project[]) {
     try {
-      // Optimization: Use aggregation queries instead of fetching all records
-      const [budgetSums, costSums, expenseSums] = await Promise.all([
-        this.budgetsRepository
-          .createQueryBuilder('budget')
-          .select('budget.projectId', 'projectId')
-          .addSelect('SUM(budget.amount)', 'total')
-          .groupBy('budget.projectId')
-          .getRawMany(),
-        this.costsRepository
-          .createQueryBuilder('cost')
-          .select('cost.projectId', 'projectId')
-          .addSelect('SUM(cost.amount)', 'total')
-          .groupBy('cost.projectId')
-          .getRawMany(),
-        this.expensesRepository
-          .createQueryBuilder('expense')
-          .select('expense.projectId', 'projectId')
-          .addSelect('SUM(expense.amount)', 'total')
-          .groupBy('expense.projectId')
-          .getRawMany(),
-      ]);
+      // Get all budgets
+      const budgets = await this.budgetsRepository
+        .find({
+          relations: ["project"],
+        })
+        .catch(() => []);
 
-      const parseSum = (item: any) =>
-        item.total ? parseFloat(item.total) : 0;
+      // Get all costs
+      const costs = await this.costsRepository
+        .find({
+          relations: ["project"],
+        })
+        .catch(() => []);
 
-      // Create lookup maps
-      const budgetMap = new Map<string, number>();
+      // Get all expenses
+      const expenses = await this.expensesRepository
+        .find({
+          relations: ["project"],
+        })
+        .catch(() => []);
+
+      // Calculate total budget
       let totalBudget = 0;
-      budgetSums.forEach((b) => {
-        const val = parseSum(b);
-        totalBudget += val;
-        if (b.projectId) budgetMap.set(b.projectId, val);
-      });
+      for (const budget of budgets) {
+        const amount =
+          typeof budget.amount === "string"
+            ? parseFloat(budget.amount)
+            : Number(budget.amount || 0);
+        totalBudget += isNaN(amount) ? 0 : amount;
+      }
 
-      const costMap = new Map<string, number>();
-      let totalCosts = 0;
-      costSums.forEach((c) => {
-        const val = parseSum(c);
-        totalCosts += val;
-        if (c.projectId) costMap.set(c.projectId, val);
-      });
+      // Calculate total spent (costs + expenses)
+      let totalSpent = 0;
+      for (const cost of costs) {
+        const amount =
+          typeof cost.amount === "string"
+            ? parseFloat(cost.amount)
+            : Number(cost.amount || 0);
+        totalSpent += isNaN(amount) ? 0 : amount;
+      }
+      for (const expense of expenses) {
+        const amount =
+          typeof expense.amount === "string"
+            ? parseFloat(expense.amount)
+            : Number(expense.amount || 0);
+        totalSpent += isNaN(amount) ? 0 : amount;
+      }
 
       const expenseMap = new Map<string, number>();
       let totalExpenses = 0;
@@ -771,23 +789,51 @@ export class DashboardService {
         if (e.projectId) expenseMap.set(e.projectId, val);
       });
 
-      const totalSpent = totalCosts + totalExpenses;
-      const remainingBudget = totalBudget - totalSpent;
+      // Calculate budget utilization percentage
       const budgetUtilization =
         totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
       // Group by project using maps
       const projectBudgets = projects.map((project) => {
-        const projectBudget = budgetMap.get(project.uid) || 0;
-        const projectCosts = costMap.get(project.uid) || 0;
-        const projectExpenses = expenseMap.get(project.uid) || 0;
+        let projectBudget = 0;
+        for (const b of budgets) {
+          if (b.projectId === project.uid) {
+            const amount =
+              typeof b.amount === "string"
+                ? parseFloat(b.amount)
+                : Number(b.amount || 0);
+            projectBudget += isNaN(amount) ? 0 : amount;
+          }
+        }
+
+        let projectCosts = 0;
+        for (const c of costs) {
+          if (c.projectId === project.uid) {
+            const amount =
+              typeof c.amount === "string"
+                ? parseFloat(c.amount)
+                : Number(c.amount || 0);
+            projectCosts += isNaN(amount) ? 0 : amount;
+          }
+        }
+
+        let projectExpenses = 0;
+        for (const e of expenses) {
+          if (e.projectId === project.uid) {
+            const amount =
+              typeof e.amount === "string"
+                ? parseFloat(e.amount)
+                : Number(e.amount || 0);
+            projectExpenses += isNaN(amount) ? 0 : amount;
+          }
+        }
 
         const projectSpent = projectCosts + projectExpenses;
         const projectRemaining = projectBudget - projectSpent;
 
         return {
           projectId: project.uid,
-          projectName: project.name || 'Unknown',
+          projectName: project.name || "Unknown",
           budget: projectBudget,
           spent: projectSpent,
           remaining: projectRemaining,
@@ -823,7 +869,7 @@ export class DashboardService {
         costTrend,
       };
     } catch (error) {
-      console.error('Error calculating budget cost metrics:', error);
+      console.error("Error calculating budget cost metrics:", error);
       return {
         totalBudget: 0,
         totalSpent: 0,
@@ -837,40 +883,58 @@ export class DashboardService {
 
   private calculateCostTrend(costs: Cost[], expenses: Expense[]) {
     const now = new Date();
-    const months: { month: string; cost: number; expense: number; total: number }[] = [];
-    
+    const months: {
+      month: string;
+      cost: number;
+      expense: number;
+      total: number;
+    }[] = [];
+
     // Get last 6 months
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthKey = date.toLocaleDateString('en-US', { month: 'short' });
+      const monthKey = date.toLocaleDateString("en-US", { month: "short" });
       const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
-      
+      const monthEnd = new Date(
+        date.getFullYear(),
+        date.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+      );
+
       let monthCost = 0;
       let monthExpense = 0;
-      
+
       // Sum costs for this month
       for (const cost of costs) {
         if (cost.date) {
           const costDate = new Date(cost.date);
           if (costDate >= monthStart && costDate <= monthEnd) {
-            const amount = typeof cost.amount === 'string' ? parseFloat(cost.amount) : Number(cost.amount || 0);
+            const amount =
+              typeof cost.amount === "string"
+                ? parseFloat(cost.amount)
+                : Number(cost.amount || 0);
             monthCost += isNaN(amount) ? 0 : amount;
           }
         }
       }
-      
+
       // Sum expenses for this month
       for (const expense of expenses) {
         if (expense.startDate) {
           const expenseDate = new Date(expense.startDate);
           if (expenseDate >= monthStart && expenseDate <= monthEnd) {
-            const amount = typeof expense.amount === 'string' ? parseFloat(expense.amount) : Number(expense.amount || 0);
+            const amount =
+              typeof expense.amount === "string"
+                ? parseFloat(expense.amount)
+                : Number(expense.amount || 0);
             monthExpense += isNaN(amount) ? 0 : amount;
           }
         }
       }
-      
+
       months.push({
         month: monthKey,
         cost: monthCost,
@@ -878,7 +942,7 @@ export class DashboardService {
         total: monthCost + monthExpense,
       });
     }
-    
+
     return months;
   }
 
@@ -889,14 +953,14 @@ export class DashboardService {
     if (!budgetData) {
       return {
         total: 0,
-        currency: 'USD' as const,
+        currency: "USD" as const,
         spent: 0,
         remaining: 0,
       };
     }
     return {
       total: budgetData.budget,
-      currency: 'USD' as const,
+      currency: "USD" as const,
       spent: budgetData.spent,
       remaining: budgetData.remaining,
     };
@@ -906,28 +970,30 @@ export class DashboardService {
     if (!task) {
       return null;
     }
-    
+
     return {
-      uid: task.uid || '',
-      identifier: task.identifier || '',
-      title: task.title || '',
-      description: task.description || '',
-      status: task.status || 'todo',
-      priority: task.priority || 'medium',
+      uid: task.uid || "",
+      identifier: task.identifier || "",
+      title: task.title || "",
+      description: task.description || "",
+      status: task.status || "todo",
+      priority: task.priority || "medium",
       assignees: task.assigneeIds || [], // Frontend expects string array (will be user IDs or names)
       dueDate: task.dueDate || null,
       startDate: task.startDate || null,
-      subtasks: task.subtasks?.map((s) => ({
-        id: s?.id || 0,
-        title: s?.title || '',
-        completed: s?.completed || false,
-      })) || [],
-      comments: task.comments?.map((c) => ({
-        id: c?.id || 0,
-        text: c?.text || '',
-        author: c?.author?.name || 'Unknown',
-        createdAt: c?.createdAt || new Date(),
-      })) || [],
+      subtasks:
+        task.subtasks?.map((s) => ({
+          id: s?.id || 0,
+          title: s?.title || "",
+          completed: s?.completed || false,
+        })) || [],
+      comments:
+        task.comments?.map((c) => ({
+          id: c?.id || 0,
+          text: c?.text || "",
+          author: c?.author?.name || "Unknown",
+          createdAt: c?.createdAt || new Date(),
+        })) || [],
       attachments: task.attachments?.length || 0,
       estimatedCost: task.estimatedCost || 0,
     };
@@ -942,7 +1008,9 @@ export class DashboardService {
       const date = new Date(now);
       date.setDate(date.getDate() - (days - i));
       const remaining = tasks.filter(
-        (t) => t.status !== 'complete' && (!t.createdAt || new Date(t.createdAt) <= date),
+        (t) =>
+          t.status !== "complete" &&
+          (!t.createdAt || new Date(t.createdAt) <= date),
       ).length;
       const ideal = Math.max(0, tasks.length - (tasks.length / days) * i);
 
@@ -959,15 +1027,19 @@ export class DashboardService {
   private calculateProductivityIndex(tasks: Task[]): number {
     if (tasks.length === 0) return 50; // Neutral score when no tasks
 
-    const completed = tasks.filter((t) => t.status === 'complete').length;
-    const inProgress = tasks.filter((t) => t.status === 'in-progress').length;
+    const completed = tasks.filter((t) => t.status === "complete").length;
+    const inProgress = tasks.filter((t) => t.status === "in-progress").length;
     const overdue = tasks.filter(
-      (t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'complete',
+      (t) =>
+        t.dueDate &&
+        new Date(t.dueDate) < new Date() &&
+        t.status !== "complete",
     ).length;
     const onTime = tasks.filter(
-      (t) => t.dueDate && 
-      new Date(t.dueDate) >= new Date() && 
-      (t.status === 'complete' || t.status === 'in-progress'),
+      (t) =>
+        t.dueDate &&
+        new Date(t.dueDate) >= new Date() &&
+        (t.status === "complete" || t.status === "in-progress"),
     ).length;
 
     // Calculate rates
@@ -977,7 +1049,8 @@ export class DashboardService {
     const overduePenalty = (overdue / tasks.length) * 40; // Increased penalty
 
     // Productivity = completion + progress + on-time bonus - overdue penalty
-    const productivity = completionRate + progressRate + onTimeRate - overduePenalty;
+    const productivity =
+      completionRate + progressRate + onTimeRate - overduePenalty;
 
     // Ensure score is between 0 and 100
     return Math.max(0, Math.min(100, Math.round(productivity)));
@@ -985,15 +1058,19 @@ export class DashboardService {
 
   private mapNotificationTypeToActivityType(
     type: string,
-  ): 'task_created' | 'task_completed' | 'task_updated' | 'comment_added' | 'project_created' {
+  ):
+    | "task_created"
+    | "task_completed"
+    | "task_updated"
+    | "comment_added"
+    | "project_created" {
     switch (type) {
-      case 'task':
-        return 'task_created';
-      case 'project':
-        return 'project_created';
+      case "task":
+        return "task_created";
+      case "project":
+        return "project_created";
       default:
-        return 'task_updated';
+        return "task_updated";
     }
   }
 }
-
