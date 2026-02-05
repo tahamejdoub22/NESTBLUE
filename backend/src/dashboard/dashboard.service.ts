@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, In } from "typeorm";
+import { Repository, In, MoreThanOrEqual } from "typeorm";
 import { Project } from "../projects/entities/project.entity";
 import { Task, TaskStatus, TaskPriority } from "../tasks/entities/task.entity";
 import { Sprint } from "../sprints/entities/sprint.entity";
@@ -17,6 +17,8 @@ export class DashboardService {
     private projectsRepository: Repository<Project>,
     @InjectRepository(Task)
     private tasksRepository: Repository<Task>,
+    @InjectRepository(Comment)
+    private commentsRepository: Repository<Comment>,
     @InjectRepository(Sprint)
     private sprintsRepository: Repository<Sprint>,
     @InjectRepository(User)
@@ -33,28 +35,52 @@ export class DashboardService {
 
   async getDashboardData(userId: string) {
     try {
-      // Get all projects (for now, get all projects regardless of owner)
-      // In production, filter by userId when ownerId field exists
+      // Sentinel 🛡️: Fixed IDOR vulnerability - Filter projects where user is owner OR member
       const projects = await this.projectsRepository
         .find({
+          where: [{ ownerId: userId }, { members: { userId } }],
           relations: ["tasks", "members"],
         })
         .catch(() => []);
 
+      const projectIds = projects.map((p) => p.uid);
+
+      // Sentinel 🛡️: Filter tasks by accessible projects or created by user
+      const taskWhere: any[] = [{ createdById: userId }];
+      if (projectIds.length > 0) {
+        taskWhere.push({ projectId: In(projectIds) });
+      }
+
       // Get all tasks
       const allTasks = await this.tasksRepository
         .find({
+          where: taskWhere,
           relations: ["project", "createdBy", "subtasks", "comments"],
         })
         .catch(() => []);
 
+      // Optimization: Get comment counts per user (avoids loading all comments for all tasks)
+      const commentCounts = await this.commentsRepository
+        .createQueryBuilder('comment')
+        .select('comment.authorId', 'authorId')
+        .addSelect('COUNT(comment.id)', 'count')
+        .groupBy('comment.authorId')
+        .getRawMany();
+
+      const commentCountMap = new Map<string, number>(
+        commentCounts.map((c) => [c.authorId, parseInt(c.count, 10) || 0]),
+      );
+
       // Get active sprints and ensure their counts are true
-      const activeSprints = await this.sprintsRepository
-        .find({
-          where: { status: "active" as any },
-          relations: ["project"],
-        })
-        .catch(() => []);
+      const activeSprints =
+        projectIds.length > 0
+          ? await this.sprintsRepository
+              .find({
+                where: { status: "active" as any, projectId: In(projectIds) },
+                relations: ["project"],
+              })
+              .catch(() => [])
+          : [];
 
       // Optimization: Get task counts for all active sprints in one query using database aggregation
       const sprintIds = activeSprints.map((s) => s.id);
@@ -265,13 +291,26 @@ export class DashboardService {
     period: "week" | "month" | "year" = "month",
   ) {
     try {
-      // Get all projects
-      const projects = await this.projectsRepository.find().catch(() => []);
+      // Sentinel 🛡️: Filter projects by user access
+      const projects = await this.projectsRepository
+        .find({
+          where: [{ ownerId: userId }, { members: { userId } }],
+        })
+        .catch(() => []);
       console.log(`[ProjectOverview] Found ${projects.length} projects`);
+
+      const projectIds = projects.map((p) => p.uid);
+
+      // Sentinel 🛡️: Filter tasks by user access
+      const taskWhere: any[] = [{ createdById: userId }];
+      if (projectIds.length > 0) {
+        taskWhere.push({ projectId: In(projectIds) });
+      }
 
       // Get all tasks with projectId to ensure we capture all tasks
       const allTasks = await this.tasksRepository
         .find({
+          where: taskWhere,
           relations: ["project"],
         })
         .catch(() => []);
@@ -358,7 +397,7 @@ export class DashboardService {
             });
 
             // If no tasks but projects exist, show at least 1 to indicate projects exist
-            if (total === 0 && projects.length > 0) {
+            if (total === 0 && projectCount > 0) {
               total = 1;
             }
           } else {
@@ -772,7 +811,11 @@ export class DashboardService {
     }
   }
 
-  private calculateUserContributions(tasks: Task[], users: User[]) {
+  private calculateUserContributions(
+    tasks: Task[],
+    users: User[],
+    commentCountMap?: Map<string, number>,
+  ) {
     return users.map((user) => {
       const userTasks = tasks.filter((t) => t.assigneeIds?.includes(user.id));
       const completedTasks = userTasks.filter((t) => t?.status === "complete");
@@ -857,28 +900,32 @@ export class DashboardService {
 
   private async calculateBudgetCostMetrics(projects: Project[]) {
     try {
-      // Get all budgets
-      const budgets = await this.budgetsRepository
-        .find({
-          relations: ["project"],
-        })
-        .catch(() => []);
+      // Optimization: Use aggregation queries instead of fetching all records
+      const [budgetSums, costSums, expenseSums] = await Promise.all([
+        this.budgetsRepository
+          .createQueryBuilder("budget")
+          .select("budget.projectId", "projectId")
+          .addSelect("SUM(budget.amount)", "total")
+          .groupBy("budget.projectId")
+          .getRawMany(),
+        this.costsRepository
+          .createQueryBuilder("cost")
+          .select("cost.projectId", "projectId")
+          .addSelect("SUM(cost.amount)", "total")
+          .groupBy("cost.projectId")
+          .getRawMany(),
+        this.expensesRepository
+          .createQueryBuilder("expense")
+          .select("expense.projectId", "projectId")
+          .addSelect("SUM(expense.amount)", "total")
+          .groupBy("expense.projectId")
+          .getRawMany(),
+      ]);
 
-      // Get all costs
-      const costs = await this.costsRepository
-        .find({
-          relations: ["project"],
-        })
-        .catch(() => []);
+      const parseSum = (item: any) => (item.total ? parseFloat(item.total) : 0);
 
-      // Get all expenses
-      const expenses = await this.expensesRepository
-        .find({
-          relations: ["project"],
-        })
-        .catch(() => []);
-
-      // Calculate total budget
+      // Create lookup maps
+      const budgetMap = new Map<string, number>();
       let totalBudget = 0;
       for (const budget of budgets) {
         const amount =
