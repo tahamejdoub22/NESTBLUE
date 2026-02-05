@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsArray } from "class-validator";
 
 export class CreateMessageDto {
   @IsString()
@@ -9,5 +9,3 @@ export class CreateMessageDto {
   @IsString({ each: true })
   attachments?: string[];
 }
-
-
