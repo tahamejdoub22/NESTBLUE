@@ -4,32 +4,30 @@ import {
   ManyToOne,
   JoinColumn,
   PrimaryGeneratedColumn,
-} from 'typeorm';
-import { Task } from './task.entity';
+} from "typeorm";
+import { Task } from "./task.entity";
 
-@Entity('subtasks')
+@Entity("subtasks")
 export class Subtask {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: "varchar", length: 255 })
   title: string;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ type: "boolean", default: false })
   completed: boolean;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: "varchar", length: 50 })
   taskUid: string;
 
-  @ManyToOne(() => Task, (task) => task.subtasks, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'taskUid', referencedColumnName: 'uid' })
+  @ManyToOne(() => Task, (task) => task.subtasks, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "taskUid", referencedColumnName: "uid" })
   task: Task;
 
-  @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP" })
   createdAt: Date;
 
-  @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP" })
   updatedAt: Date;
 }
-
-

@@ -1,5 +1,5 @@
-import { DataSource } from 'typeorm';
-import { dataSourceOptions } from '../config/typeorm.config';
+import { DataSource } from "typeorm";
+import { dataSourceOptions } from "../config/typeorm.config";
 
 async function runMigrations() {
   const dataSource = new DataSource(dataSourceOptions);
@@ -7,21 +7,21 @@ async function runMigrations() {
   let exitCode = 0;
 
   try {
-    console.log('🔄 Running migrations...');
+    console.log("🔄 Running migrations...");
     await dataSource.initialize();
     isInitialized = true;
-    
+
     await dataSource.runMigrations();
-    console.log('✅ Migrations completed successfully');
+    console.log("✅ Migrations completed successfully");
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    console.error("❌ Migration failed:", error);
     exitCode = 1;
   } finally {
     if (isInitialized && dataSource.isInitialized) {
       try {
         await dataSource.destroy();
       } catch (destroyError) {
-        console.error('⚠️  Error closing database connection:', destroyError);
+        console.error("⚠️  Error closing database connection:", destroyError);
       }
     }
     // Only exit with error code, let successful migrations exit naturally
@@ -34,4 +34,3 @@ async function runMigrations() {
 }
 
 runMigrations();
-

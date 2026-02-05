@@ -67,7 +67,7 @@ export class ProjectsService {
     return projects;
   }
 
-  async findOne(uid: string): Promise<Project> {
+  async findOne(uid: string, checkAccessForUserId?: string): Promise<Project> {
     try {
       const project = await this.projectsRepository.findOne({
         where: { uid },
@@ -79,10 +79,27 @@ export class ProjectsService {
         throw new NotFoundException(`Project with UID ${uid} not found`);
       }
 
+      if (checkAccessForUserId) {
+        if (project.ownerId !== checkAccessForUserId) {
+          const member = await this.projectMembersRepository.findOne({
+            where: { projectUid: uid, userId: checkAccessForUserId },
+          });
+
+          if (!member) {
+            throw new ForbiddenException(
+              "You do not have access to this project",
+            );
+          }
+        }
+      }
+
       return project;
     } catch (error) {
       console.error(`Error in ProjectsService.findOne for UID ${uid}:`, error);
-      if (error instanceof NotFoundException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       throw error;
@@ -119,8 +136,11 @@ export class ProjectsService {
   }
 
   // Team Members
-  async getProjectMembers(projectUid: string): Promise<ProjectMember[]> {
-    await this.findOne(projectUid); // Verify project exists
+  async getProjectMembers(
+    projectUid: string,
+    checkAccessForUserId?: string,
+  ): Promise<ProjectMember[]> {
+    await this.findOne(projectUid, checkAccessForUserId); // Verify project exists and check access
     return this.projectMembersRepository.find({
       where: { projectUid },
       relations: ["user", "invitedBy"],
@@ -203,11 +223,6 @@ export class ProjectsService {
   ): Promise<void> {
     const project = await this.findOne(projectUid);
 
-    // If owner, always allowed
-    if (project.ownerId === inviterId) {
-      return;
-    }
-
     // Check if inviter is owner or admin
     const inviterMember = await this.projectMembersRepository.findOne({
       where: { projectUid, userId: inviterId },
@@ -236,7 +251,9 @@ export class ProjectsService {
       await this.usersService.findOne(userId);
     } catch (error) {
       if (error instanceof NotFoundException) {
-        throw new BadRequestException(`User with ID ${userId} not found`);
+        throw new BadRequestException(
+          `User with ID ${inviteDto.userId} not found`,
+        );
       }
       throw error;
     }
