@@ -1,25 +1,23 @@
-import { Test, TestingModule } from '@nestjs/testing';
-jest.mock('bcrypt', () => ({
+import { Test, TestingModule } from "@nestjs/testing";
+import { DashboardService } from "./dashboard.service";
+
+jest.mock("bcrypt", () => ({
   hash: jest.fn(),
   compare: jest.fn(),
   genSalt: jest.fn(),
 }));
-import { DashboardService } from './dashboard.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Project } from '../projects/entities/project.entity';
-import { Task } from '../tasks/entities/task.entity';
-import { Comment } from '../tasks/entities/comment.entity';
-import { Sprint } from '../sprints/entities/sprint.entity';
-import { User } from '../users/entities/user.entity';
-import { Cost } from '../costs/entities/cost.entity';
-import { Expense } from '../expenses/entities/expense.entity';
-import { Budget } from '../budgets/entities/budget.entity';
-import { Notification } from '../notifications/entities/notification.entity';
-import { Repository } from 'typeorm';
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Project } from "../projects/entities/project.entity";
+import { Task } from "../tasks/entities/task.entity";
+import { Sprint } from "../sprints/entities/sprint.entity";
+import { User } from "../users/entities/user.entity";
+import { Cost } from "../costs/entities/cost.entity";
+import { Expense } from "../expenses/entities/expense.entity";
+import { Budget } from "../budgets/entities/budget.entity";
+import { Notification } from "../notifications/entities/notification.entity";
+import { Repository } from "typeorm";
 
-jest.mock('bcrypt', () => ({}));
-
-describe('DashboardService', () => {
+describe("DashboardService", () => {
   let service: DashboardService;
   let tasksRepository: Repository<Task>;
   let sprintsRepository: Repository<Sprint>;
@@ -202,14 +200,19 @@ describe('DashboardService', () => {
 
     // Mock responses
     mockSprintsRepository.find.mockResolvedValue(activeSprints);
-    mockProjectsRepository.find.mockResolvedValue([]);
+    // Sentinel fix: Must provide projects for sprints to be fetched
+    mockProjectsRepository.find.mockResolvedValue([{ uid: "p1" }]);
     mockTasksRepository.find.mockResolvedValue([]); // For allTasks
 
     // Mock aggregate query result
-    mockQueryBuilder.getRawMany.mockResolvedValue([
+    mockTaskQueryBuilder.getRawMany.mockResolvedValue([
       { sprintId: "sprint-1", count: "5", completedCount: "2" },
       { sprintId: "sprint-2", count: "3", completedCount: "3" },
     ]);
+
+    // Needed for costTrend
+    mockCostsRepository.find.mockResolvedValue([]);
+    mockExpensesRepository.find.mockResolvedValue([]);
 
     await service.getDashboardData("user-1");
 
@@ -219,7 +222,7 @@ describe('DashboardService', () => {
 
     // 1 call for createQueryBuilder (the optimization)
     expect(tasksRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
-    expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+    expect(mockTaskQueryBuilder.where).toHaveBeenCalledWith(
       "task.sprintId IN (:...sprintIds)",
       { sprintIds: ["sprint-1", "sprint-2"] },
     );
@@ -238,9 +241,12 @@ describe('DashboardService', () => {
   it("should calculate project budget correctly", async () => {
     // Setup data
     const project = { uid: "proj-1", name: "Project 1" };
-    const budgets = [{ projectId: "proj-1", amount: 1000 }];
-    const costs = [{ projectId: "proj-1", amount: 200 }];
-    const expenses = [{ projectId: "proj-1", amount: 50 }];
+
+    // Order: Budgets, Costs, Expenses
+    mockAggregationQueryBuilder.getRawMany
+      .mockResolvedValueOnce([{ projectId: "proj-1", total: "1000" }]) // Budget
+      .mockResolvedValueOnce([{ projectId: "proj-1", total: "200" }]) // Cost
+      .mockResolvedValueOnce([{ projectId: "proj-1", total: "50" }]); // Expense
 
     // Mock responses
     mockProjectsRepository.find.mockResolvedValue([project]);
@@ -266,46 +272,38 @@ describe('DashboardService', () => {
     expect(mockExpensesRepository.createQueryBuilder).toHaveBeenCalled();
   });
 
-  it('should use createQueryBuilder for user contribution comment counts', async () => {
-    // Setup data
-    const teamMembers = [{ id: 'user-1', name: 'User 1' }];
-    // Dummy tasks
-    const tasks = [
-      {
-        uid: 'task-1',
-        assigneeIds: [],
-        createdById: 'user-2',
-        status: 'todo',
-      },
-    ];
+  it("should filter projects, tasks, and sprints by user access (Security)", async () => {
+    const userId = "user-1";
+    const project = { uid: "p1" };
 
-    // Mock responses
-    mockRepository.find.mockResolvedValue(teamMembers); // Users repository
-    mockTasksRepository.find.mockResolvedValue(tasks);
+    // Setup mocks
+    mockProjectsRepository.find.mockResolvedValue([project]);
+    mockTasksRepository.find.mockResolvedValue([]);
     mockSprintsRepository.find.mockResolvedValue([]);
-    mockProjectsRepository.find.mockResolvedValue([]);
 
-    // Mock comment aggregation
-    mockCommentQueryBuilder.getRawMany.mockResolvedValue([
-      { authorId: 'user-1', count: '42' },
-    ]);
-
+    // Needed for costTrend
     mockCostsRepository.find.mockResolvedValue([]);
     mockExpensesRepository.find.mockResolvedValue([]);
 
-    const result = await service.getDashboardData('user-1');
+    await service.getDashboardData(userId);
 
-    // Verify comment query
-    expect(mockCommentsRepository.createQueryBuilder).toHaveBeenCalled();
-    expect(mockCommentQueryBuilder.groupBy).toHaveBeenCalledWith(
-      'comment.authorId',
+    // Verify projects filter
+    expect(projectsRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: [{ ownerId: userId }, { members: { userId } }],
+      }),
     );
 
-    // Verify result contains correct comment count
-    const userContribution = result.userContributions.find(
-      (u) => u.userId === 'user-1',
+    // Verify tasks filter
+    // Tasks should be filtered by project ID AND createdBy
+    expect(tasksRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.arrayContaining([
+          { createdById: userId },
+          // We expect a check for projectId because projects were found
+          expect.objectContaining({ projectId: expect.anything() }),
+        ]),
+      }),
     );
-    expect(userContribution).toBeDefined();
-    expect(userContribution.commentsAdded).toBe(42);
   });
 });

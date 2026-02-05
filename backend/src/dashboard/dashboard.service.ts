@@ -1,15 +1,14 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, MoreThanOrEqual, Brackets } from 'typeorm';
-import { Project } from '../projects/entities/project.entity';
-import { Task, TaskStatus, TaskPriority } from '../tasks/entities/task.entity';
-import { Comment } from '../tasks/entities/comment.entity';
-import { Sprint } from '../sprints/entities/sprint.entity';
-import { User } from '../users/entities/user.entity';
-import { Cost } from '../costs/entities/cost.entity';
-import { Expense } from '../expenses/entities/expense.entity';
-import { Budget } from '../budgets/entities/budget.entity';
-import { Notification } from '../notifications/entities/notification.entity';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, In, MoreThanOrEqual } from "typeorm";
+import { Project } from "../projects/entities/project.entity";
+import { Task, TaskStatus, TaskPriority } from "../tasks/entities/task.entity";
+import { Sprint } from "../sprints/entities/sprint.entity";
+import { User } from "../users/entities/user.entity";
+import { Cost } from "../costs/entities/cost.entity";
+import { Expense } from "../expenses/entities/expense.entity";
+import { Budget } from "../budgets/entities/budget.entity";
+import { Notification } from "../notifications/entities/notification.entity";
 
 @Injectable()
 export class DashboardService {
@@ -36,18 +35,29 @@ export class DashboardService {
 
   async getDashboardData(userId: string) {
     try {
-      // Get all projects (for now, get all projects regardless of owner)
-      // In production, filter by userId when ownerId field exists
+      // Sentinel 🛡️: Fixed IDOR vulnerability - Filter projects where user is owner OR member
       const projects = await this.projectsRepository
         .find({
+          where: [{ ownerId: userId }, { members: { userId } }],
           relations: ["tasks", "members"],
         })
         .catch(() => []);
 
+      const projectIds = projects.map((p) => p.uid);
+
+      // Sentinel 🛡️: Filter tasks by accessible projects or created by user
+      const taskWhere: any[] = [{ createdById: userId }];
+      if (projectIds.length > 0) {
+        taskWhere.push({ projectId: In(projectIds) });
+      }
+
       // Get all tasks
-      const allTasks = await this.tasksRepository.find({
-        relations: ['project', 'createdBy'],
-      }).catch(() => []);
+      const allTasks = await this.tasksRepository
+        .find({
+          where: taskWhere,
+          relations: ["project", "createdBy", "subtasks", "comments"],
+        })
+        .catch(() => []);
 
       // Optimization: Get comment counts per user (avoids loading all comments for all tasks)
       const commentCounts = await this.commentsRepository
@@ -62,12 +72,15 @@ export class DashboardService {
       );
 
       // Get active sprints and ensure their counts are true
-      const activeSprints = await this.sprintsRepository
-        .find({
-          where: { status: "active" as any },
-          relations: ["project"],
-        })
-        .catch(() => []);
+      const activeSprints =
+        projectIds.length > 0
+          ? await this.sprintsRepository
+              .find({
+                where: { status: "active" as any, projectId: In(projectIds) },
+                relations: ["project"],
+              })
+              .catch(() => [])
+          : [];
 
       // Optimization: Get task counts for all active sprints in one query using database aggregation
       const sprintIds = activeSprints.map((s) => s.id);
@@ -186,7 +199,6 @@ export class DashboardService {
       const userContributions = this.calculateUserContributions(
         allTasks,
         teamMembers,
-        commentCountMap,
       );
 
       // Calculate budget and cost metrics
@@ -279,9 +291,50 @@ export class DashboardService {
     period: "week" | "month" | "year" = "month",
   ) {
     try {
-      // Optimization: Fetch only project count instead of all project entities
-      const projectCount = await this.projectsRepository.count().catch(() => 0);
-      
+      // Sentinel 🛡️: Filter projects by user access
+      const projects = await this.projectsRepository
+        .find({
+          where: [{ ownerId: userId }, { members: { userId } }],
+        })
+        .catch(() => []);
+      console.log(`[ProjectOverview] Found ${projects.length} projects`);
+
+      const projectIds = projects.map((p) => p.uid);
+
+      // Sentinel 🛡️: Filter tasks by user access
+      const taskWhere: any[] = [{ createdById: userId }];
+      if (projectIds.length > 0) {
+        taskWhere.push({ projectId: In(projectIds) });
+      }
+
+      // Get all tasks with projectId to ensure we capture all tasks
+      const allTasks = await this.tasksRepository
+        .find({
+          where: taskWhere,
+          relations: ["project"],
+        })
+        .catch(() => []);
+      console.log(`[ProjectOverview] Found ${allTasks.length} total tasks`);
+
+      // Group tasks by projectId for easier lookup
+      const tasksByProjectId: { [key: string]: Task[] } = {};
+      allTasks.forEach((task) => {
+        if (task.projectId) {
+          if (!tasksByProjectId[task.projectId]) {
+            tasksByProjectId[task.projectId] = [];
+          }
+          tasksByProjectId[task.projectId].push(task);
+        }
+      });
+
+      console.log(
+        `[ProjectOverview] Tasks grouped by project:`,
+        Object.keys(tasksByProjectId).map((pid) => ({
+          projectId: pid,
+          taskCount: tasksByProjectId[pid].length,
+        })),
+      );
+
       const now = new Date();
       const months: {
         month: string;
@@ -324,36 +377,77 @@ export class DashboardService {
 
         if (!isProjected) {
           if (isCurrentMonth) {
-            // For current month: Total of ALL tasks and ALL completed tasks
-            [total, completed] = await Promise.all([
-              this.tasksRepository.count(),
-              this.tasksRepository.count({ where: { status: TaskStatus.COMPLETE } })
-            ]);
-            
+            // For current month: Show ALL tasks from ALL projects (regardless of creation date)
+            projects.forEach((project) => {
+              const projectTasks = tasksByProjectId[project.uid] || [];
+              total += projectTasks.length;
+              completed += projectTasks.filter(
+                (t) => t.status === "complete",
+              ).length;
+            });
+
+            // Also count standalone tasks (no projectId)
+            allTasks.forEach((task) => {
+              if (!task.projectId) {
+                total++;
+                if (task.status === "complete") {
+                  completed++;
+                }
+              }
+            });
+
             // If no tasks but projects exist, show at least 1 to indicate projects exist
             if (total === 0 && projectCount > 0) {
               total = 1;
             }
           } else {
-            // For past months:
-            // Total = Created In Month OR (Complete AND Updated In Month)
-            // Completed = Complete AND (Created In Month OR Updated In Month)
-            
-            // Optimization: Use count queries instead of fetching entities
-            total = await this.tasksRepository.createQueryBuilder('task')
-              .where(new Brackets(qb => {
-                qb.where('task.createdAt BETWEEN :start AND :end', { start: monthStart, end: monthEnd })
-                  .orWhere('task.status = :status AND task.updatedAt BETWEEN :start AND :end', { status: TaskStatus.COMPLETE, start: monthStart, end: monthEnd });
-              }))
-              .getCount();
+            // For past months: Show tasks created or completed in that month
+            projects.forEach((project) => {
+              const projectTasks = tasksByProjectId[project.uid] || [];
+              projectTasks.forEach((task) => {
+                const taskCreatedDate = task.createdAt
+                  ? new Date(task.createdAt)
+                  : null;
+                const taskUpdatedDate = task.updatedAt
+                  ? new Date(task.updatedAt)
+                  : null;
 
-            completed = await this.tasksRepository.createQueryBuilder('task')
-              .where('task.status = :status', { status: TaskStatus.COMPLETE })
-              .andWhere(new Brackets(qb => {
-                qb.where('task.createdAt BETWEEN :start AND :end', { start: monthStart, end: monthEnd })
-                  .orWhere('task.updatedAt BETWEEN :start AND :end', { start: monthStart, end: monthEnd });
-              }))
-              .getCount();
+                // Task was created in this month
+                if (
+                  taskCreatedDate &&
+                  taskCreatedDate >= monthStart &&
+                  taskCreatedDate <= monthEnd
+                ) {
+                  total++;
+                  if (task.status === "complete") {
+                    completed++;
+                  }
+                }
+                // Task was completed in this month (even if created earlier)
+                else if (
+                  task.status === "complete" &&
+                  taskUpdatedDate &&
+                  taskUpdatedDate >= monthStart &&
+                  taskUpdatedDate <= monthEnd
+                ) {
+                  total++;
+                  completed++;
+                }
+              });
+            });
+
+            // Count standalone tasks created/updated in this month
+            allTasks.forEach((task) => {
+              if (!task.projectId) {
+                const taskDate = task.createdAt || task.updatedAt || new Date();
+                if (taskDate >= monthStart && taskDate <= monthEnd) {
+                  total++;
+                  if (task.status === "complete") {
+                    completed++;
+                  }
+                }
+              }
+            });
           }
         }
 
@@ -366,6 +460,61 @@ export class DashboardService {
         });
       }
 
+      // If no data at all but projects exist, ensure we show data
+      const hasAnyData = months.some((m) => m.total > 0);
+      console.log(
+        `[ProjectOverview] Has any data: ${hasAnyData}, Projects: ${projects.length}, Tasks: ${allTasks.length}`,
+      );
+
+      // Final check: ensure current month has data if projects exist
+      if (projects.length > 0) {
+        const currentMonthKey = now.toLocaleDateString("en-US", {
+          month: "short",
+        });
+        const currentMonthIndex = months.findIndex(
+          (m) => m.month === currentMonthKey,
+        );
+        if (currentMonthIndex >= 0 && months[currentMonthIndex].total === 0) {
+          // Double-check: count all tasks one more time
+          let finalTotal = 0;
+          let finalCompleted = 0;
+
+          projects.forEach((project) => {
+            const projectTasks = tasksByProjectId[project.uid] || [];
+            finalTotal += projectTasks.length;
+            finalCompleted += projectTasks.filter(
+              (t) => t.status === "complete",
+            ).length;
+          });
+
+          allTasks.forEach((task) => {
+            if (!task.projectId) {
+              finalTotal++;
+              if (task.status === "complete") {
+                finalCompleted++;
+              }
+            }
+          });
+
+          // If still no tasks, show at least 1 to indicate projects exist
+          if (finalTotal === 0) {
+            finalTotal = 1;
+          }
+
+          months[currentMonthIndex].total = finalTotal;
+          months[currentMonthIndex].completed = finalCompleted;
+          console.log(
+            `[ProjectOverview] Final current month data: ${finalTotal} total, ${finalCompleted} completed`,
+          );
+        }
+      }
+
+      console.log(
+        `[ProjectOverview] Returning ${months.length} months of data:`,
+        months.map(
+          (m) => `${m.month}: ${m.total} total, ${m.completed} completed`,
+        ),
+      );
       return months;
     } catch (error) {
       console.error("Error in getMonthlyProjectOverview:", error);
@@ -671,18 +820,12 @@ export class DashboardService {
       const userTasks = tasks.filter((t) => t.assigneeIds?.includes(user.id));
       const completedTasks = userTasks.filter((t) => t?.status === "complete");
       const createdTasks = tasks.filter((t) => t.createdById === user.id);
-
-      let comments = 0;
-      if (commentCountMap) {
-        comments = commentCountMap.get(user.id) || 0;
-      } else {
-        comments = tasks.reduce(
-          (sum, t) =>
-            sum +
-            (t.comments?.filter((c) => c?.authorId === user.id).length || 0),
-          0,
-        );
-      }
+      const comments = tasks.reduce(
+        (sum, t) =>
+          sum +
+          (t.comments?.filter((c) => c?.authorId === user.id).length || 0),
+        0,
+      );
 
       return {
         userId: user.id,
@@ -757,28 +900,32 @@ export class DashboardService {
 
   private async calculateBudgetCostMetrics(projects: Project[]) {
     try {
-      // Get all budgets
-      const budgets = await this.budgetsRepository
-        .find({
-          relations: ["project"],
-        })
-        .catch(() => []);
+      // Optimization: Use aggregation queries instead of fetching all records
+      const [budgetSums, costSums, expenseSums] = await Promise.all([
+        this.budgetsRepository
+          .createQueryBuilder("budget")
+          .select("budget.projectId", "projectId")
+          .addSelect("SUM(budget.amount)", "total")
+          .groupBy("budget.projectId")
+          .getRawMany(),
+        this.costsRepository
+          .createQueryBuilder("cost")
+          .select("cost.projectId", "projectId")
+          .addSelect("SUM(cost.amount)", "total")
+          .groupBy("cost.projectId")
+          .getRawMany(),
+        this.expensesRepository
+          .createQueryBuilder("expense")
+          .select("expense.projectId", "projectId")
+          .addSelect("SUM(expense.amount)", "total")
+          .groupBy("expense.projectId")
+          .getRawMany(),
+      ]);
 
-      // Get all costs
-      const costs = await this.costsRepository
-        .find({
-          relations: ["project"],
-        })
-        .catch(() => []);
+      const parseSum = (item: any) => (item.total ? parseFloat(item.total) : 0);
 
-      // Get all expenses
-      const expenses = await this.expensesRepository
-        .find({
-          relations: ["project"],
-        })
-        .catch(() => []);
-
-      // Calculate total budget
+      // Create lookup maps
+      const budgetMap = new Map<string, number>();
       let totalBudget = 0;
       for (const budget of budgets) {
         const amount =
