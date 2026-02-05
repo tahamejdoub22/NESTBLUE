@@ -1,35 +1,33 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from '../../common/entities/base.entity';
-import { User } from '../../users/entities/user.entity';
+import { Entity, Column, ManyToOne, JoinColumn } from "typeorm";
+import { BaseEntity } from "../../common/entities/base.entity";
+import { User } from "../../users/entities/user.entity";
 
 export enum NoteColor {
-  YELLOW = 'yellow',
-  BLUE = 'blue',
-  GREEN = 'green',
-  PINK = 'pink',
+  YELLOW = "yellow",
+  BLUE = "blue",
+  GREEN = "green",
+  PINK = "pink",
 }
 
-@Entity('notes')
+@Entity("notes")
 export class Note extends BaseEntity {
-  @Column({ type: 'text' })
+  @Column({ type: "text" })
   content: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 20,
     default: NoteColor.YELLOW,
   })
   color: NoteColor;
 
-  @Column({ type: 'float', default: 0 })
+  @Column({ type: "float", default: 0 })
   rotation: number;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ type: "uuid", nullable: true })
   userId: string;
 
   @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'userId' })
+  @JoinColumn({ name: "userId" })
   user?: User;
 }
-
-
