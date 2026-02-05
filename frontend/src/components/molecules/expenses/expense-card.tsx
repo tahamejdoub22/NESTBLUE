@@ -3,7 +3,8 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms";
 import { Badge } from "@/components/atoms";
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms";
+import { Button } from "@/components/atoms";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms";
 import { Pencil, Trash2, Repeat, Calendar, FolderKanban, Receipt, CheckCircle2, XCircle } from "lucide-react";
 import type { Expense } from "@/interfaces";
 import { CURRENCIES, COST_CATEGORIES } from "@/core/config/constants";
@@ -122,8 +123,8 @@ export function ExpenseCard({ expense, onEdit, onDelete, delay = 0 }: ExpenseCar
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Edit expense"
                     className="h-7 w-7 hover:bg-muted"
+                    aria-label="Edit expense"
                     onClick={(e) => {
                       e.stopPropagation();
                       onEdit(expense);
@@ -143,8 +144,8 @@ export function ExpenseCard({ expense, onEdit, onDelete, delay = 0 }: ExpenseCar
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="Delete expense"
                     className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    aria-label="Delete expense"
                     onClick={(e) => {
                       e.stopPropagation();
                       onDelete(expense.id);
