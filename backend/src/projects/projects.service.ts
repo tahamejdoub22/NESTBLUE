@@ -136,8 +136,11 @@ export class ProjectsService {
   }
 
   // Team Members
-  async getProjectMembers(projectUid: string): Promise<ProjectMember[]> {
-    await this.findOne(projectUid); // Verify project exists
+  async getProjectMembers(
+    projectUid: string,
+    checkAccessForUserId?: string,
+  ): Promise<ProjectMember[]> {
+    await this.findOne(projectUid, checkAccessForUserId); // Verify project exists and check access
     return this.projectMembersRepository.find({
       where: { projectUid },
       relations: ["user", "invitedBy"],
@@ -171,8 +174,8 @@ export class ProjectsService {
 
     await this.validateInvitePermissions(projectUid, inviterId);
 
-    const results: ProjectMember[] = [];
-    const errors: string[] = [];
+    // Dedup IDs
+    const uniqueIds = [...new Set(inviteDto.userIds)];
 
     for (const userId of inviteDto.userIds) {
       try {
@@ -196,6 +199,7 @@ export class ProjectsService {
           `Failed to invite user ${userId}: ${error.message || error}`,
         );
       }
+      return [];
     }
 
     // If no users were successfully invited and there were errors, throw
@@ -205,7 +209,7 @@ export class ProjectsService {
       );
     }
 
-    return results;
+    return savedMembers;
   }
 
   private async validateInvitePermissions(
@@ -213,11 +217,6 @@ export class ProjectsService {
     inviterId: string,
   ): Promise<void> {
     const project = await this.findOne(projectUid);
-
-    // If owner, always allowed
-    if (project.ownerId === inviterId) {
-      return;
-    }
 
     // Check if inviter is owner or admin
     const inviterMember = await this.projectMembersRepository.findOne({
@@ -247,7 +246,9 @@ export class ProjectsService {
       await this.usersService.findOne(userId);
     } catch (error) {
       if (error instanceof NotFoundException) {
-        throw new BadRequestException(`User with ID ${userId} not found`);
+        throw new BadRequestException(
+          `User with ID ${inviteDto.userId} not found`,
+        );
       }
       throw error;
     }

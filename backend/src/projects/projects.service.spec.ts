@@ -23,8 +23,8 @@ import {
 
 describe("ProjectsService", () => {
   let service: ProjectsService;
-  let projectsRepository: Repository<Project>;
-  let projectMembersRepository: Repository<ProjectMember>;
+  let projectRepo: Repository<Project>;
+  let memberRepo: Repository<ProjectMember>;
   let usersService: UsersService;
 
   const mockProject = {
@@ -47,27 +47,25 @@ describe("ProjectsService", () => {
         {
           provide: getRepositoryToken(Project),
           useValue: {
+            findOne: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
-            find: jest.fn(),
-            findOne: jest.fn(),
-            remove: jest.fn(),
           },
         },
         {
           provide: getRepositoryToken(ProjectMember),
           useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
-            find: jest.fn(),
-            findOne: jest.fn(),
-            remove: jest.fn(),
           },
         },
         {
           provide: UsersService,
           useValue: {
             findOne: jest.fn(),
+            findByIds: jest.fn(),
           },
         },
       ],
@@ -114,15 +112,58 @@ describe("ProjectsService", () => {
         .spyOn(projectMembersRepository, "save")
         .mockResolvedValue({} as ProjectMember);
 
-      await service.inviteMembers(projectUid, inviteDto, inviterId);
+      const mockSavedMembers = [{ id: 'mem-1' }];
+      jest.spyOn(projectMembersRepository, 'create').mockImplementation((dto) => dto as any);
+      jest.spyOn(projectMembersRepository, 'save').mockResolvedValue(mockSavedMembers as any);
 
-      // Verification
-      // Currently, it calls findOne for each user + maybe internal checks?
-      // With 2 users, inviteMember is called 2 times.
-      // inviteMember calls findOne 1 time.
-      // So total 2 calls.
-      // We want to optimize it to 1 call.
-      expect(projectsRepository.findOne).toHaveBeenCalledTimes(1);
+      const result = await service.inviteMembers(projectUid, inviteDto, inviterId);
+
+      expect(result).toHaveLength(1); // Should return the successful one
+      expect(usersService.findByIds).toHaveBeenCalledWith(['user-1', 'user-missing']);
+    });
+
+    it('should fail if all users missing', async () => {
+       const projectUid = 'proj-123';
+       const inviterId = 'user-owner';
+       const inviteDto: InviteMembersDto = {
+         userIds: ['user-missing'],
+         role: ProjectMemberRole.MEMBER,
+       };
+
+       jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
+       jest.spyOn(usersService, 'findByIds').mockResolvedValue([]);
+
+       await expect(service.inviteMembers(projectUid, inviteDto, inviterId))
+         .rejects
+         .toThrow(BadRequestException);
+    });
+
+    it('should filter out existing members', async () => {
+      const projectUid = 'proj-123';
+      const inviterId = 'user-owner';
+      const inviteDto: InviteMembersDto = {
+        userIds: ['user-1', 'user-existing'],
+        role: ProjectMemberRole.MEMBER,
+      };
+
+      jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
+
+      const mockUsers = [{ id: 'user-1' }, { id: 'user-existing' }];
+      jest.spyOn(usersService, 'findByIds').mockResolvedValue(mockUsers as any);
+
+      // user-existing is already a member
+      const existingMembers = [{ userId: 'user-existing' }];
+      jest.spyOn(projectMembersRepository, 'find').mockResolvedValue(existingMembers as any);
+
+      const mockSavedMembers = [{ id: 'mem-1' }];
+      jest.spyOn(projectMembersRepository, 'create').mockImplementation((dto) => dto as any);
+      jest.spyOn(projectMembersRepository, 'save').mockResolvedValue(mockSavedMembers as any);
+
+      const result = await service.inviteMembers(projectUid, dto, inviterId);
+
+      // Should only save user-1
+      expect(projectMembersRepository.create).toHaveBeenCalledTimes(1);
+      expect(projectMembersRepository.create).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }));
     });
   });
 });
