@@ -1,5 +1,11 @@
-import { IsString, IsOptional, IsEnum, IsInt, IsDateString } from 'class-validator';
-import { SprintStatus } from '../entities/sprint.entity';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsInt,
+  IsDateString,
+} from "class-validator";
+import { SprintStatus } from "../entities/sprint.entity";
 
 export class CreateSprintDto {
   @IsString()
@@ -30,5 +36,3 @@ export class CreateSprintDto {
   @IsInt()
   completedTaskCount?: number;
 }
-
-
