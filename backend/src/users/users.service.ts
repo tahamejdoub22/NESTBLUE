@@ -20,12 +20,12 @@ export class UsersService {
   async create(createUserDto: CreateUserDto): Promise<User> {
     const existingUser = await this.findByEmail(createUserDto.email);
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw new ConflictException("Email already exists");
     }
 
     const user = this.usersRepository.create({
       ...createUserDto,
-      emailVerificationToken: crypto.randomBytes(32).toString('hex'),
+      emailVerificationToken: crypto.randomBytes(32).toString("hex"),
     });
 
     return this.usersRepository.save(user);
@@ -33,7 +33,35 @@ export class UsersService {
 
   async findAll(): Promise<User[]> {
     return this.usersRepository.find({
-      select: ['id', 'name', 'email', 'avatar', 'role', 'status', 'createdAt', 'updatedAt'],
+      select: [
+        "id",
+        "name",
+        "email",
+        "avatar",
+        "role",
+        "status",
+        "createdAt",
+        "updatedAt",
+      ],
+    });
+  }
+
+  async findByIds(ids: string[]): Promise<User[]> {
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+    return this.usersRepository.find({
+      where: { id: In(ids) },
+      select: [
+        "id",
+        "name",
+        "email",
+        "avatar",
+        "role",
+        "status",
+        "createdAt",
+        "updatedAt",
+      ],
     });
   }
 
@@ -82,7 +110,10 @@ export class UsersService {
     await this.usersRepository.save(user);
   }
 
-  async updateRefreshToken(id: string, refreshToken: string | null): Promise<void> {
+  async updateRefreshToken(
+    id: string,
+    refreshToken: string | null,
+  ): Promise<void> {
     await this.usersRepository.update(id, { refreshToken });
   }
 
@@ -119,5 +150,4 @@ export class UsersService {
     const user = await this.findOne(id);
     await this.usersRepository.remove(user);
   }
-
 }
