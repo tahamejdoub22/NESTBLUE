@@ -46,6 +46,25 @@ export class UsersService {
     });
   }
 
+  async findByIds(ids: string[]): Promise<User[]> {
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+    return this.usersRepository.find({
+      where: { id: In(ids) },
+      select: [
+        "id",
+        "name",
+        "email",
+        "avatar",
+        "role",
+        "status",
+        "createdAt",
+        "updatedAt",
+      ],
+    });
+  }
+
   async findOne(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {
@@ -55,7 +74,12 @@ export class UsersService {
   }
 
   async findByIds(ids: string[]): Promise<User[]> {
-    return this.usersRepository.findBy({ id: In(ids) });
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+    return this.usersRepository.find({
+      where: { id: In(ids) },
+    });
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -72,6 +96,11 @@ export class UsersService {
     return this.usersRepository.findOne({
       where: { passwordResetToken: token },
     });
+  }
+
+  async findByIds(ids: string[]): Promise<User[]> {
+    if (ids.length === 0) return [];
+    return this.usersRepository.find({ where: { id: In(ids) } });
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {

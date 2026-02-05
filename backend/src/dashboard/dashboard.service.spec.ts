@@ -1,5 +1,11 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DashboardService } from "./dashboard.service";
+
+jest.mock("bcrypt", () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Project } from "../projects/entities/project.entity";
 import { Task } from "../tasks/entities/task.entity";
@@ -37,9 +43,21 @@ describe("DashboardService", () => {
     getRawMany: jest.fn(),
   };
 
+  // Mock for Comment aggregation
+  const mockCommentQueryBuilder = {
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn(),
+  };
+
   const mockTasksRepository = {
     find: jest.fn(),
     createQueryBuilder: jest.fn().mockReturnValue(mockTaskQueryBuilder),
+  };
+
+  const mockCommentsRepository = {
+    createQueryBuilder: jest.fn().mockReturnValue(mockCommentQueryBuilder),
   };
 
   const mockSprintsRepository = {
@@ -79,10 +97,12 @@ describe("DashboardService", () => {
     // Reset query builder mocks
     mockAggregationQueryBuilder.getRawMany.mockReset();
     mockTaskQueryBuilder.getRawMany.mockReset();
+    mockCommentQueryBuilder.getRawMany.mockReset();
 
     // Set default returns for aggregation to avoid "undefined" errors in other tests
     mockAggregationQueryBuilder.getRawMany.mockResolvedValue([]);
     mockTaskQueryBuilder.getRawMany.mockResolvedValue([]);
+    mockCommentQueryBuilder.getRawMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -92,6 +112,10 @@ describe("DashboardService", () => {
           useValue: mockProjectsRepository,
         },
         { provide: getRepositoryToken(Task), useValue: mockTasksRepository },
+        {
+          provide: getRepositoryToken(Comment),
+          useValue: mockCommentsRepository,
+        },
         {
           provide: getRepositoryToken(Sprint),
           useValue: mockSprintsRepository,
@@ -176,7 +200,8 @@ describe("DashboardService", () => {
 
     // Mock responses
     mockSprintsRepository.find.mockResolvedValue(activeSprints);
-    mockProjectsRepository.find.mockResolvedValue([]);
+    // Sentinel fix: Must provide projects for sprints to be fetched
+    mockProjectsRepository.find.mockResolvedValue([{ uid: "p1" }]);
     mockTasksRepository.find.mockResolvedValue([]); // For allTasks
 
     // Mock aggregate query result
@@ -184,6 +209,10 @@ describe("DashboardService", () => {
       { sprintId: "sprint-1", count: "5", completedCount: "2" },
       { sprintId: "sprint-2", count: "3", completedCount: "3" },
     ]);
+
+    // Needed for costTrend
+    mockCostsRepository.find.mockResolvedValue([]);
+    mockExpensesRepository.find.mockResolvedValue([]);
 
     await service.getDashboardData("user-1");
 
@@ -212,9 +241,12 @@ describe("DashboardService", () => {
   it("should calculate project budget correctly", async () => {
     // Setup data
     const project = { uid: "proj-1", name: "Project 1" };
-    const budgets = [{ projectId: "proj-1", amount: 1000 }];
-    const costs = [{ projectId: "proj-1", amount: 200 }];
-    const expenses = [{ projectId: "proj-1", amount: 50 }];
+
+    // Order: Budgets, Costs, Expenses
+    mockAggregationQueryBuilder.getRawMany
+      .mockResolvedValueOnce([{ projectId: "proj-1", total: "1000" }]) // Budget
+      .mockResolvedValueOnce([{ projectId: "proj-1", total: "200" }]) // Cost
+      .mockResolvedValueOnce([{ projectId: "proj-1", total: "50" }]); // Expense
 
     // Mock responses
     mockProjectsRepository.find.mockResolvedValue([project]);
@@ -234,5 +266,40 @@ describe("DashboardService", () => {
       spent: 250,
       remaining: 750,
     });
+  });
+
+  it("should filter projects, tasks, and sprints by user access (Security)", async () => {
+    const userId = "user-1";
+    const project = { uid: "p1" };
+
+    // Setup mocks
+    mockProjectsRepository.find.mockResolvedValue([project]);
+    mockTasksRepository.find.mockResolvedValue([]);
+    mockSprintsRepository.find.mockResolvedValue([]);
+
+    // Needed for costTrend
+    mockCostsRepository.find.mockResolvedValue([]);
+    mockExpensesRepository.find.mockResolvedValue([]);
+
+    await service.getDashboardData(userId);
+
+    // Verify projects filter
+    expect(projectsRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: [{ ownerId: userId }, { members: { userId } }],
+      }),
+    );
+
+    // Verify tasks filter
+    // Tasks should be filtered by project ID AND createdBy
+    expect(tasksRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.arrayContaining([
+          { createdById: userId },
+          // We expect a check for projectId because projects were found
+          expect.objectContaining({ projectId: expect.anything() }),
+        ]),
+      }),
+    );
   });
 });

@@ -35,9 +35,22 @@ const mockProjectMember = {
 
 describe("ProjectsService", () => {
   let service: ProjectsService;
-  let projectsRepository: Repository<Project>;
-  let projectMembersRepository: Repository<ProjectMember>;
+  let projectRepo: Repository<Project>;
+  let memberRepo: Repository<ProjectMember>;
   let usersService: UsersService;
+
+  const mockProject = {
+    uid: "proj-123",
+    ownerId: "user-owner",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as Project;
+
+  const mockInviterMember = {
+    projectUid: "proj-123",
+    userId: "user-owner",
+    role: ProjectMemberRole.OWNER,
+  } as ProjectMember;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -46,21 +59,18 @@ describe("ProjectsService", () => {
         {
           provide: getRepositoryToken(Project),
           useValue: {
+            findOne: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
-            find: jest.fn(),
-            findOne: jest.fn(),
-            remove: jest.fn(),
           },
         },
         {
           provide: getRepositoryToken(ProjectMember),
           useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
-            find: jest.fn(),
-            findOne: jest.fn(),
-            remove: jest.fn(),
           },
         },
         {

@@ -78,16 +78,22 @@ export class MessagesService {
 
     // Load all users in parallel
     const userMap = new Map<string, { name: string; avatar?: string }>();
-    await Promise.all(
-      Array.from(allParticipantIds).map(async (id) => {
-        try {
-          const user = await this.usersService.findOne(id);
-          userMap.set(id, { name: user.name, avatar: user.avatar });
-        } catch (error) {
+    const uniqueIds = Array.from(allParticipantIds);
+
+    if (uniqueIds.length > 0) {
+      const users = await this.usersService.findByIds(uniqueIds);
+      const foundUserIds = new Set<string>();
+      users.forEach((user) => {
+        userMap.set(user.id, { name: user.name, avatar: user.avatar });
+        foundUserIds.add(user.id);
+      });
+
+      uniqueIds.forEach((id) => {
+        if (!foundUserIds.has(id)) {
           userMap.set(id, { name: "Unknown User" });
         }
-      }),
-    );
+      });
+    }
 
     // Transform to match frontend format
     return conversations.map((conv) => {
@@ -238,7 +244,10 @@ export class MessagesService {
     userId: string,
   ): Promise<Message> {
     // Get conversation to check participants
-    const conversation = await this.findConversationById(conversationId);
+    const conversation = await this.findConversationById(
+      conversationId,
+      userId,
+    );
 
     const user = await this.usersService.findOne(userId);
     const message = this.messagesRepository.create({

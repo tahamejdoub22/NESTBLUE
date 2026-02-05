@@ -1,8 +1,13 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { UsersController } from "./users.controller";
-import { UsersService } from "./users.service";
-import { ForbiddenException, BadRequestException } from "@nestjs/common";
-import { UserStatus } from "./entities/user.entity";
+import { Test, TestingModule } from '@nestjs/testing';
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
+import { UsersController } from './users.controller';
+import { UsersService } from './users.service';
+import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { UserStatus } from './entities/user.entity';
 
 describe("UsersController Security", () => {
   let controller: UsersController;

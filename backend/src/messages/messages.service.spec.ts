@@ -1,10 +1,16 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MessagesService } from "./messages.service";
 import { UsersService } from "../users/users.service";
+import { ForbiddenException } from "@nestjs/common";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Conversation } from "./entities/conversation.entity";
 import { Message } from "./entities/message.entity";
 import { ForbiddenException } from "@nestjs/common";
+
+jest.mock("bcrypt", () => ({
+  hash: jest.fn().mockResolvedValue("hashed_password"),
+  compare: jest.fn().mockResolvedValue(true),
+}));
 
 describe("MessagesService", () => {
   let service: MessagesService;
@@ -41,6 +47,7 @@ describe("MessagesService", () => {
 
     usersService = {
       findOne: jest.fn(),
+      findByIds: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -111,6 +118,32 @@ describe("MessagesService", () => {
         return Promise.resolve(null);
       });
 
+      // Mock findByIds
+      (usersService.findByIds as jest.Mock).mockImplementation(
+        (ids: string[]) => {
+          return Promise.resolve(
+            ids
+              .map((id) => {
+                if (id === userId) {
+                  return {
+                    id: userId,
+                    name: "Current User",
+                    avatar: "my-avatar.png",
+                  };
+                } else if (id === otherUserId) {
+                  return {
+                    id: otherUserId,
+                    name: "Other User",
+                    avatar: "other-avatar.png",
+                  };
+                }
+                return null;
+              })
+              .filter((u) => u !== null),
+          );
+        },
+      );
+
       const results = await service.findAllConversations(userId);
 
       expect(results).toHaveLength(1);
@@ -150,6 +183,19 @@ describe("MessagesService", () => {
         name: "User",
         avatar: "avatar.png",
       });
+
+      // Mock findByIds
+      (usersService.findByIds as jest.Mock).mockImplementation(
+        (ids: string[]) => {
+          return Promise.resolve(
+            ids.map((id) => ({
+              id,
+              name: "User",
+              avatar: "avatar.png",
+            })),
+          );
+        },
+      );
 
       const results = await service.findAllConversations(userId);
 
