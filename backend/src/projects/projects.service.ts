@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { Project } from "./entities/project.entity";
 import {
   ProjectMember,
@@ -172,44 +172,49 @@ export class ProjectsService {
       throw new BadRequestException("At least one user ID is required");
     }
 
+    const userIds = [...new Set(inviteDto.userIds)];
     await this.validateInvitePermissions(projectUid, inviterId);
 
-    // Dedup IDs
-    const uniqueIds = [...new Set(inviteDto.userIds)];
+    // Bulk fetch users to validate existence
+    const users = await this.usersService.findByIds(userIds);
+    const existingUserIds = users.map((u) => u.id);
 
-    for (const userId of inviteDto.userIds) {
-      try {
-        const member = await this.addMemberToProject(
-          projectUid,
-          userId,
-          inviteDto.role || ProjectMemberRole.MEMBER,
-          inviterId,
-        );
-        results.push(member);
-      } catch (error: any) {
-        // Skip if already member, continue with others
-        if (
-          error instanceof BadRequestException &&
-          error.message.includes("already a member")
-        ) {
-          continue;
-        }
-        // Collect errors but continue processing other users
-        errors.push(
-          `Failed to invite user ${userId}: ${error.message || error}`,
-        );
-      }
-      return [];
-    }
-
-    // If no users were successfully invited and there were errors, throw
-    if (results.length === 0 && errors.length > 0) {
+    if (existingUserIds.length === 0) {
       throw new BadRequestException(
-        `Failed to invite any members: ${errors.join("; ")}`,
+        "None of the provided users could be found",
       );
     }
 
-    return savedMembers;
+    // Bulk check existing members
+    const existingMembers = await this.projectMembersRepository.find({
+      where: {
+        projectUid,
+        userId: In(existingUserIds),
+      },
+    });
+
+    const existingMemberUserIds = existingMembers.map((m) => m.userId);
+    const usersToInvite = existingUserIds.filter(
+      (id) => !existingMemberUserIds.includes(id),
+    );
+
+    if (usersToInvite.length === 0) {
+      // All valid users are already members
+      return [];
+    }
+
+    const role = inviteDto.role || ProjectMemberRole.MEMBER;
+
+    const newMembers = usersToInvite.map((userId) => {
+      return this.projectMembersRepository.create({
+        projectUid,
+        userId,
+        role,
+        invitedById: inviterId,
+      });
+    });
+
+    return this.projectMembersRepository.save(newMembers);
   }
 
   private async validateInvitePermissions(
