@@ -1,4 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
 import { AuthController } from './auth.controller';
 import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
 import { Reflector } from '@nestjs/core';

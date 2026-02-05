@@ -1,11 +1,17 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { MessagesService } from "./messages.service";
-import { UsersService } from "../users/users.service";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { Conversation } from "./entities/conversation.entity";
-import { Message } from "./entities/message.entity";
+import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException } from '@nestjs/common';
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
+import { MessagesService } from './messages.service';
+import { UsersService } from '../users/users.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Conversation } from './entities/conversation.entity';
+import { Message } from './entities/message.entity';
 
-describe("MessagesService", () => {
+describe('MessagesService', () => {
   let service: MessagesService;
   let usersService: Partial<UsersService>;
   let conversationsRepository: any;
