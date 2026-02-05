@@ -6,46 +6,44 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-} from 'typeorm';
-import { Conversation } from './conversation.entity';
+} from "typeorm";
+import { Conversation } from "./conversation.entity";
 
-@Entity('messages')
+@Entity("messages")
 export class Message {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: "uuid" })
   conversationId: string;
 
   @ManyToOne(() => Conversation, (conversation) => conversation.messages, {
-    onDelete: 'CASCADE',
+    onDelete: "CASCADE",
   })
-  @JoinColumn({ name: 'conversationId' })
+  @JoinColumn({ name: "conversationId" })
   conversation: Conversation;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: "uuid" })
   senderId: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: "varchar", length: 255 })
   senderName: string;
 
-  @Column({ type: 'varchar', length: 500, nullable: true })
+  @Column({ type: "varchar", length: 500, nullable: true })
   senderAvatar: string;
 
-  @Column({ type: 'text' })
+  @Column({ type: "text" })
   content: string;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ type: "boolean", default: false })
   read: boolean;
 
-  @Column({ type: 'varchar', array: true, default: [] })
+  @Column({ type: "varchar", array: true, default: [] })
   attachments: string[];
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamptz' })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt: Date;
 }
-
-
