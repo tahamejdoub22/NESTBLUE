@@ -2,13 +2,13 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { User, UserStatus } from "./entities/user.entity";
-import { CreateUserDto } from "./dto/create-user.dto";
-import { UpdateUserDto } from "./dto/update-user.dto";
-import * as crypto from "crypto";
+import { User, UserStatus } from './entities/user.entity';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class UsersService {
@@ -55,6 +55,7 @@ export class UsersService {
   }
 
   async findByIds(ids: string[]): Promise<User[]> {
+    if (!ids.length) return [];
     return this.usersRepository.findBy({ id: In(ids) });
   }
 

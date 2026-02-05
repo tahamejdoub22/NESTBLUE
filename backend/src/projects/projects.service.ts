@@ -1,21 +1,13 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { Project } from "./entities/project.entity";
-import {
-  ProjectMember,
-  ProjectMemberRole,
-} from "./entities/project-member.entity";
-import { CreateProjectDto } from "./dto/create-project.dto";
-import { UpdateProjectDto } from "./dto/update-project.dto";
-import { InviteMemberDto, InviteMembersDto } from "./dto/invite-member.dto";
-import { UsersService } from "../users/users.service";
-import { v4 as uuidv4 } from "uuid";
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, In } from 'typeorm';
+import { Project } from './entities/project.entity';
+import { ProjectMember, ProjectMemberRole } from './entities/project-member.entity';
+import { CreateProjectDto } from './dto/create-project.dto';
+import { UpdateProjectDto } from './dto/update-project.dto';
+import { InviteMemberDto, InviteMembersDto } from './dto/invite-member.dto';
+import { UsersService } from '../users/users.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ProjectsService {
@@ -234,94 +226,65 @@ export class ProjectsService {
       throw new BadRequestException("At least one user ID is required");
     }
 
+    // 1. Get Project and Check Inviter Permissions
+    const project = await this.findOne(projectUid);
+
+    if (project.ownerId !== inviterId) {
+       const inviterMember = await this.projectMembersRepository.findOne({
+          where: { projectUid, userId: inviterId },
+        });
+        if (!inviterMember || ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(inviterMember.role)) {
+           throw new ForbiddenException('You do not have permission to invite members');
+        }
+    }
+
     const results: ProjectMember[] = [];
     const errors: string[] = [];
+    
+    // 2. Fetch all valid users
+    const distinctUserIds = [...new Set(inviteDto.userIds)];
+    const foundUsers = await this.usersService.findByIds(distinctUserIds);
+    const foundUserIds = new Set(foundUsers.map(u => u.id));
 
-    for (const userId of inviteDto.userIds) {
-      try {
-        const member = await this.inviteMember(
-          projectUid,
-          { userId, role: inviteDto.role },
-          inviterId,
-        );
-        results.push(member);
-      } catch (error: any) {
-        // Skip if already member, continue with others
-        if (
-          error instanceof BadRequestException &&
-          error.message.includes("already a member")
-        ) {
-          continue;
-        }
-        // Collect errors but continue processing other users
-        errors.push(
-          `Failed to invite user ${userId}: ${error.message || error}`,
-        );
-      }
-
-      const member = this.projectMembersRepository.create({
-        projectUid,
-        userId,
-        role: inviteDto.role || ProjectMemberRole.MEMBER,
-        invitedById: inviterId,
-      });
-      newMembersToSave.push(member);
-    }
-
-    // 6. Bulk Save
-    if (newMembersToSave.length > 0) {
-      const savedMembers =
-        await this.projectMembersRepository.save(newMembersToSave);
-      results.push(...savedMembers);
-    }
-
-    // Fetch all users to be invited (ONCE)
-    const foundUsers = await this.usersService.findByIds(inviteDto.userIds);
-    const foundUserIds = foundUsers.map((u) => u.id);
-    const missingUserIds = inviteDto.userIds.filter(
-      (id) => !foundUserIds.includes(id),
-    );
-
-    // Fetch existing members for these users (ONCE)
-    let existingMemberUserIds: string[] = [];
-    if (foundUserIds.length > 0) {
-      const existingMembers = await this.projectMembersRepository.find({
+    // 3. Fetch existing members for these users
+    const existingMembers = await this.projectMembersRepository.find({
         where: {
-          projectUid,
-          userId: In(foundUserIds),
-        },
-      });
-      existingMemberUserIds = existingMembers.map((m) => m.userId);
+            projectUid,
+            userId: In(distinctUserIds)
+        }
+    });
+    const existingMemberUserIds = new Set(existingMembers.map(m => m.userId));
+
+    const newMembersToSave: ProjectMember[] = [];
+
+    // 4. Process each user
+    for (const userId of distinctUserIds) {
+        if (!foundUserIds.has(userId)) {
+             errors.push(`Failed to invite user ${userId}: User with ID ${userId} not found`);
+             continue;
+        }
+        if (existingMemberUserIds.has(userId)) {
+             // Skip silently as per previous logic
+             continue;
+        }
+
+        const member = this.projectMembersRepository.create({
+            projectUid,
+            userId,
+            role: inviteDto.role || ProjectMemberRole.MEMBER,
+            invitedById: inviterId,
+        });
+        newMembersToSave.push(member);
     }
 
-    // Determine who to invite
-    const usersToInvite = foundUsers.filter(
-      (u) => !existingMemberUserIds.includes(u.id),
-    );
-
-    // Bulk insert (ONCE)
-    if (usersToInvite.length > 0) {
-      const newMembers = usersToInvite.map((user) =>
-        this.projectMembersRepository.create({
-          projectUid,
-          userId: user.id,
-          role: inviteDto.role || ProjectMemberRole.MEMBER,
-          invitedById: inviterId,
-        }),
-      );
-
-      // Save all at once
-      await this.projectMembersRepository.save(newMembers);
-
-      return newMembers;
-    }
-
-    // If no users were successfully invited, check for errors
-    const errors: string[] = [];
-    if (missingUserIds.length > 0) {
-      missingUserIds.forEach((id) =>
-        errors.push(`Failed to invite user ${id}: User with ID ${id} not found`),
-      );
+    // 5. Bulk Save
+    if (newMembersToSave.length > 0) {
+        try {
+            const saved = await this.projectMembersRepository.save(newMembersToSave);
+            results.push(...saved);
+        } catch (error: any) {
+             errors.push(`Bulk save failed: ${error.message}`);
+        }
     }
 
     // If no users were successfully invited and there were errors, throw
