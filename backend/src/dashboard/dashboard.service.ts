@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, MoreThanOrEqual, Brackets } from 'typeorm';
 import { Project } from '../projects/entities/project.entity';
 import { Task, TaskStatus, TaskPriority } from '../tasks/entities/task.entity';
+import { Comment } from '../tasks/entities/comment.entity';
 import { Sprint } from '../sprints/entities/sprint.entity';
 import { User } from '../users/entities/user.entity';
 import { Cost } from '../costs/entities/cost.entity';
@@ -17,6 +18,8 @@ export class DashboardService {
     private projectsRepository: Repository<Project>,
     @InjectRepository(Task)
     private tasksRepository: Repository<Task>,
+    @InjectRepository(Comment)
+    private commentsRepository: Repository<Comment>,
     @InjectRepository(Sprint)
     private sprintsRepository: Repository<Sprint>,
     @InjectRepository(User)
@@ -42,11 +45,21 @@ export class DashboardService {
         .catch(() => []);
 
       // Get all tasks
-      const allTasks = await this.tasksRepository
-        .find({
-          relations: ["project", "createdBy", "subtasks", "comments"],
-        })
-        .catch(() => []);
+      const allTasks = await this.tasksRepository.find({
+        relations: ['project', 'createdBy'],
+      }).catch(() => []);
+
+      // Optimization: Get comment counts per user (avoids loading all comments for all tasks)
+      const commentCounts = await this.commentsRepository
+        .createQueryBuilder('comment')
+        .select('comment.authorId', 'authorId')
+        .addSelect('COUNT(comment.id)', 'count')
+        .groupBy('comment.authorId')
+        .getRawMany();
+
+      const commentCountMap = new Map<string, number>(
+        commentCounts.map((c) => [c.authorId, parseInt(c.count, 10) || 0]),
+      );
 
       // Get active sprints and ensure their counts are true
       const activeSprints = await this.sprintsRepository
@@ -173,6 +186,7 @@ export class DashboardService {
       const userContributions = this.calculateUserContributions(
         allTasks,
         teamMembers,
+        commentCountMap,
       );
 
       // Calculate budget and cost metrics
@@ -648,17 +662,27 @@ export class DashboardService {
     }
   }
 
-  private calculateUserContributions(tasks: Task[], users: User[]) {
+  private calculateUserContributions(
+    tasks: Task[],
+    users: User[],
+    commentCountMap?: Map<string, number>,
+  ) {
     return users.map((user) => {
       const userTasks = tasks.filter((t) => t.assigneeIds?.includes(user.id));
       const completedTasks = userTasks.filter((t) => t?.status === "complete");
       const createdTasks = tasks.filter((t) => t.createdById === user.id);
-      const comments = tasks.reduce(
-        (sum, t) =>
-          sum +
-          (t.comments?.filter((c) => c?.authorId === user.id).length || 0),
-        0,
-      );
+
+      let comments = 0;
+      if (commentCountMap) {
+        comments = commentCountMap.get(user.id) || 0;
+      } else {
+        comments = tasks.reduce(
+          (sum, t) =>
+            sum +
+            (t.comments?.filter((c) => c?.authorId === user.id).length || 0),
+          0,
+        );
+      }
 
       return {
         userId: user.id,
