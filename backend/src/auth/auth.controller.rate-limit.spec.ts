@@ -1,11 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { AuthController } from './auth.controller';
-import { RateLimiterGuard } from '../common/guards/rate-limiter.guard';
-import { Reflector } from '@nestjs/core';
-import { AuthService } from './auth.service';
-import { UsersService } from '../users/users.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { AuthController } from "./auth.controller";
+import { RateLimiterGuard } from "../common/guards/rate-limiter.guard";
+import { Reflector } from "@nestjs/core";
+import { AuthService } from "./auth.service";
+import { UsersService } from "../users/users.service";
 
-describe('AuthController Rate Limiting', () => {
+describe("AuthController Rate Limiting", () => {
   let controller: AuthController;
   let reflector: Reflector;
 
@@ -28,32 +28,35 @@ describe('AuthController Rate Limiting', () => {
     reflector = module.get<Reflector>(Reflector);
   });
 
-  it('should have RateLimiterGuard on login', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.login);
+  it("should have RateLimiterGuard on login", () => {
+    const guards = reflector.get<any[]>("__guards__", controller.login);
     expect(guards).toBeDefined();
     expect(guards).toContain(RateLimiterGuard);
   });
 
-  it('should have RateLimiterGuard on register', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.register);
+  it("should have RateLimiterGuard on register", () => {
+    const guards = reflector.get<any[]>("__guards__", controller.register);
     expect(guards).toBeDefined();
     expect(guards).toContain(RateLimiterGuard);
   });
 
-  it('should have RateLimiterGuard on forgotPassword', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.forgotPassword);
+  it("should have RateLimiterGuard on forgotPassword", () => {
+    const guards = reflector.get<any[]>(
+      "__guards__",
+      controller.forgotPassword,
+    );
     expect(guards).toBeDefined();
     expect(guards).toContain(RateLimiterGuard);
   });
 
-  it('should have RateLimiterGuard on resetPassword', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.resetPassword);
+  it("should have RateLimiterGuard on resetPassword", () => {
+    const guards = reflector.get<any[]>("__guards__", controller.resetPassword);
     expect(guards).toBeDefined();
     expect(guards).toContain(RateLimiterGuard);
   });
 
-  it('should have RateLimiterGuard on verifyEmail', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.verifyEmail);
+  it("should have RateLimiterGuard on verifyEmail", () => {
+    const guards = reflector.get<any[]>("__guards__", controller.verifyEmail);
     expect(guards).toBeDefined();
     expect(guards).toContain(RateLimiterGuard);
   });

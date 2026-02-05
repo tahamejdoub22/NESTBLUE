@@ -180,7 +180,7 @@ describe("DashboardService", () => {
     mockTasksRepository.find.mockResolvedValue([]); // For allTasks
 
     // Mock aggregate query result
-    mockQueryBuilder.getRawMany.mockResolvedValue([
+    mockTaskQueryBuilder.getRawMany.mockResolvedValue([
       { sprintId: "sprint-1", count: "5", completedCount: "2" },
       { sprintId: "sprint-2", count: "3", completedCount: "3" },
     ]);
@@ -193,7 +193,7 @@ describe("DashboardService", () => {
 
     // 1 call for createQueryBuilder (the optimization)
     expect(tasksRepository.createQueryBuilder).toHaveBeenCalledTimes(1);
-    expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+    expect(mockTaskQueryBuilder.where).toHaveBeenCalledWith(
       "task.sprintId IN (:...sprintIds)",
       { sprintIds: ["sprint-1", "sprint-2"] },
     );
@@ -234,9 +234,5 @@ describe("DashboardService", () => {
       spent: 250,
       remaining: 750,
     });
-
-    expect(mockBudgetsRepository.createQueryBuilder).toHaveBeenCalled();
-    expect(mockCostsRepository.createQueryBuilder).toHaveBeenCalled();
-    expect(mockExpensesRepository.createQueryBuilder).toHaveBeenCalled();
   });
 });

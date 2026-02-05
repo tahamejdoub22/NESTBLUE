@@ -30,15 +30,13 @@ describe("DashboardService - Members Population", () => {
           provide: getRepositoryToken(Task),
           useValue: {
             find: jest.fn().mockResolvedValue([]),
-            createQueryBuilder: jest
-              .fn()
-              .mockReturnValue({
-                select: jest.fn().mockReturnThis(),
-                addSelect: jest.fn().mockReturnThis(),
-                where: jest.fn().mockReturnThis(),
-                groupBy: jest.fn().mockReturnThis(),
-                getRawMany: jest.fn().mockResolvedValue([]),
-              }),
+            createQueryBuilder: jest.fn().mockReturnValue({
+              select: jest.fn().mockReturnThis(),
+              addSelect: jest.fn().mockReturnThis(),
+              where: jest.fn().mockReturnThis(),
+              groupBy: jest.fn().mockReturnThis(),
+              getRawMany: jest.fn().mockResolvedValue([]),
+            }),
           },
         },
         {

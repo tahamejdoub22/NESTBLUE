@@ -4,6 +4,7 @@ import { UsersService } from "../users/users.service";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Conversation } from "./entities/conversation.entity";
 import { Message } from "./entities/message.entity";
+import { ForbiddenException } from "@nestjs/common";
 
 describe("MessagesService", () => {
   let service: MessagesService;
@@ -160,13 +161,13 @@ describe("MessagesService", () => {
     });
   });
 
-  describe('findConversationById', () => {
-    it('should return conversation if user is participant', async () => {
-      const userId = 'user-1';
-      const conversationId = 'conv-1';
+  describe("findConversationById", () => {
+    it("should return conversation if user is participant", async () => {
+      const userId = "user-1";
+      const conversationId = "conv-1";
       const mockConversation = {
         id: conversationId,
-        participantIds: [userId, 'user-2'],
+        participantIds: [userId, "user-2"],
       };
 
       conversationsRepository.findOne.mockResolvedValue(mockConversation);
@@ -175,19 +176,19 @@ describe("MessagesService", () => {
       expect(result).toEqual(mockConversation);
     });
 
-    it('should throw ForbiddenException if user is not participant', async () => {
-      const userId = 'user-1';
-      const conversationId = 'conv-1';
+    it("should throw ForbiddenException if user is not participant", async () => {
+      const userId = "user-1";
+      const conversationId = "conv-1";
       const mockConversation = {
         id: conversationId,
-        participantIds: ['user-2', 'user-3'],
+        participantIds: ["user-2", "user-3"],
       };
 
       conversationsRepository.findOne.mockResolvedValue(mockConversation);
 
-      await expect(service.findConversationById(conversationId, userId))
-        .rejects
-        .toThrow(ForbiddenException);
+      await expect(
+        service.findConversationById(conversationId, userId),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

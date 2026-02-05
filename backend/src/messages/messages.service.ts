@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Conversation } from "./entities/conversation.entity";
@@ -150,7 +154,10 @@ export class MessagesService {
     });
   }
 
-  async findConversationById(id: string, userId: string): Promise<Conversation> {
+  async findConversationById(
+    id: string,
+    userId?: string,
+  ): Promise<Conversation> {
     const conversation = await this.conversationsRepository.findOne({
       where: { id },
       relations: ["messages"],
@@ -160,11 +167,35 @@ export class MessagesService {
       throw new NotFoundException(`Conversation with ID ${id} not found`);
     }
 
-    if (!conversation.participantIds.includes(userId)) {
-      throw new ForbiddenException('You are not a participant in this conversation');
+    if (userId && !conversation.participantIds.includes(userId)) {
+      throw new ForbiddenException(
+        "You are not a participant in this conversation",
+      );
     }
 
     return conversation;
+  }
+
+  private async checkConversationAccess(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    const conversation = await this.conversationsRepository.findOne({
+      where: { id: conversationId },
+      select: ["participantIds"],
+    });
+
+    if (!conversation) {
+      throw new NotFoundException(
+        `Conversation with ID ${conversationId} not found`,
+      );
+    }
+
+    if (!conversation.participantIds.includes(userId)) {
+      throw new ForbiddenException(
+        "You are not a participant in this conversation",
+      );
+    }
   }
 
   async updateConversation(
@@ -176,7 +207,7 @@ export class MessagesService {
     return this.conversationsRepository.save(conversation);
   }
 
-  async deleteConversation(id: string, userId: string): Promise<void> {
+  async deleteConversation(id: string, userId?: string): Promise<void> {
     const conversation = await this.findConversationById(id, userId);
     await this.conversationsRepository.remove(conversation);
   }
@@ -241,9 +272,14 @@ export class MessagesService {
     return savedMessage;
   }
 
-  async findMessagesByConversation(conversationId: string, userId: string): Promise<Message[]> {
+  async findMessagesByConversation(
+    conversationId: string,
+    userId?: string,
+  ): Promise<Message[]> {
     // Verify access first
-    await this.checkConversationAccess(conversationId, userId);
+    if (userId) {
+      await this.checkConversationAccess(conversationId, userId);
+    }
 
     return this.messagesRepository.find({
       where: { conversationId },

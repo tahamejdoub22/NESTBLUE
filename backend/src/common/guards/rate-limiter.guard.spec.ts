@@ -36,10 +36,7 @@ describe("RateLimiterGuard", () => {
     }
 
     expect(() => guard.canActivate(mockContext)).toThrow(
-      new HttpException(
-        'Too many requests. Please try again later.',
-        429,
-      ),
+      new HttpException("Too many requests. Please try again later.", 429),
     );
   });
 

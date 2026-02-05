@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, In } from "typeorm";
 import { Project } from "./entities/project.entity";
 import {
   ProjectMember,
@@ -171,58 +171,33 @@ export class ProjectsService {
         "You do not have permission to invite members",
       );
     }
-  }
 
-  private async addMemberToProject(
-    projectUid: string,
-    userId: string,
-    role: ProjectMemberRole,
-    inviterId: string,
-  ): Promise<ProjectMember> {
     // Check if user exists
+    let user;
     try {
-      await this.usersService.findOne(userId);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw new BadRequestException(
-          `User with ID ${inviteDto.userId} not found`,
-        );
-      }
-      throw error;
+      user = await this.usersService.findOne(inviteDto.userId);
+    } catch (e) {
+      throw new BadRequestException(
+        `User with ID ${inviteDto.userId} not found`,
+      );
     }
 
-    // Check if already a member
+    // Check if already member
     const existing = await this.projectMembersRepository.findOne({
-      where: { projectUid, userId },
+      where: { projectUid, userId: inviteDto.userId },
     });
-
     if (existing) {
       throw new BadRequestException("User is already a member of this project");
     }
 
     const member = this.projectMembersRepository.create({
       projectUid,
-      userId,
-      role,
+      userId: inviteDto.userId,
+      role: inviteDto.role,
       invitedById: inviterId,
     });
 
-    try {
-      return await this.projectMembersRepository.save(member);
-    } catch (error: any) {
-      // Handle database constraint errors
-      if (error.code === "23505") {
-        // Unique constraint violation
-        throw new BadRequestException(
-          "User is already a member of this project",
-        );
-      }
-      if (error.code === "23503") {
-        // Foreign key constraint violation
-        throw new BadRequestException("Invalid project or user reference");
-      }
-      throw error;
-    }
+    return this.projectMembersRepository.save(member);
   }
 
   async inviteMembers(
@@ -234,55 +209,32 @@ export class ProjectsService {
       throw new BadRequestException("At least one user ID is required");
     }
 
-    const results: ProjectMember[] = [];
-    const errors: string[] = [];
+    // Verify inviter has permission
+    const project = await this.findOne(projectUid);
+    const inviterMember = await this.projectMembersRepository.findOne({
+      where: { projectUid, userId: inviterId },
+    });
 
-    for (const userId of inviteDto.userIds) {
-      try {
-        const member = await this.inviteMember(
-          projectUid,
-          { userId, role: inviteDto.role },
-          inviterId,
-        );
-        results.push(member);
-      } catch (error: any) {
-        // Skip if already member, continue with others
-        if (
-          error instanceof BadRequestException &&
-          error.message.includes("already a member")
-        ) {
-          continue;
-        }
-        // Collect errors but continue processing other users
-        errors.push(
-          `Failed to invite user ${userId}: ${error.message || error}`,
-        );
-      }
-
-      const member = this.projectMembersRepository.create({
-        projectUid,
-        userId,
-        role: inviteDto.role || ProjectMemberRole.MEMBER,
-        invitedById: inviterId,
-      });
-      newMembersToSave.push(member);
+    if (
+      project.ownerId !== inviterId &&
+      (!inviterMember ||
+        ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(
+          inviterMember.role,
+        ))
+    ) {
+      throw new ForbiddenException(
+        "You do not have permission to invite members",
+      );
     }
 
-    // 6. Bulk Save
-    if (newMembersToSave.length > 0) {
-      const savedMembers =
-        await this.projectMembersRepository.save(newMembersToSave);
-      results.push(...savedMembers);
-    }
-
-    // Fetch all users to be invited (ONCE)
+    // Fetch all users to be invited
     const foundUsers = await this.usersService.findByIds(inviteDto.userIds);
     const foundUserIds = foundUsers.map((u) => u.id);
     const missingUserIds = inviteDto.userIds.filter(
       (id) => !foundUserIds.includes(id),
     );
 
-    // Fetch existing members for these users (ONCE)
+    // Fetch existing members for these users
     let existingMemberUserIds: string[] = [];
     if (foundUserIds.length > 0) {
       const existingMembers = await this.projectMembersRepository.find({
@@ -299,7 +251,7 @@ export class ProjectsService {
       (u) => !existingMemberUserIds.includes(u.id),
     );
 
-    // Bulk insert (ONCE)
+    // Bulk insert
     if (usersToInvite.length > 0) {
       const newMembers = usersToInvite.map((user) =>
         this.projectMembersRepository.create({
@@ -320,12 +272,14 @@ export class ProjectsService {
     const errors: string[] = [];
     if (missingUserIds.length > 0) {
       missingUserIds.forEach((id) =>
-        errors.push(`Failed to invite user ${id}: User with ID ${id} not found`),
+        errors.push(
+          `Failed to invite user ${id}: User with ID ${id} not found`,
+        ),
       );
     }
 
     // If no users were successfully invited and there were errors, throw
-    if (results.length === 0 && errors.length > 0) {
+    if (errors.length > 0) {
       throw new BadRequestException(
         `Failed to invite any members: ${errors.join("; ")}`,
       );
@@ -401,6 +355,42 @@ export class ProjectsService {
 
     member.role = role;
     return this.projectMembersRepository.save(member);
+  }
+
+  async getAccessibleProjectIds(userId: string): Promise<string[]> {
+    const ownedProjects = await this.projectsRepository.find({
+      where: { ownerId: userId },
+      select: ["uid"],
+    });
+
+    const memberProjects = await this.projectMembersRepository.find({
+      where: { userId },
+      select: ["projectUid"],
+    });
+
+    const projectIds = new Set([
+      ...ownedProjects.map((p) => p.uid),
+      ...memberProjects.map((p) => p.projectUid),
+    ]);
+
+    return Array.from(projectIds);
+  }
+
+  async hasAccess(userId: string, projectUid: string): Promise<boolean> {
+    const project = await this.projectsRepository.findOne({
+      where: { uid: projectUid },
+      select: ["ownerId"],
+    });
+
+    if (!project) return false;
+
+    if (project.ownerId === userId) return true;
+
+    const member = await this.projectMembersRepository.findOne({
+      where: { projectUid, userId },
+    });
+
+    return !!member;
   }
 
   private generateUid(): string {

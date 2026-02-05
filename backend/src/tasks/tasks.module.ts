@@ -9,6 +9,7 @@ import { Attachment } from "./entities/attachment.entity";
 import { StorageModule } from "../storage/storage.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { SprintsModule } from "../sprints/sprints.module";
+import { ProjectsModule } from "../projects/projects.module";
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SprintsModule } from "../sprints/sprints.module";
     StorageModule,
     NotificationsModule,
     forwardRef(() => SprintsModule),
+    forwardRef(() => ProjectsModule),
   ],
   controllers: [TasksController],
   providers: [TasksService],
