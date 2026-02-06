@@ -21,14 +21,20 @@ describe('SprintsService', () => {
     update: jest.fn(),
   };
 
+  const mockTaskQueryBuilder = {
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    loadRelationCountAndMap: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    getMany: jest.fn().mockResolvedValue([]),
+    getCount: jest.fn().mockResolvedValue(5),
+  };
+
   const mockTasksRepository = {
     find: jest.fn(),
     count: jest.fn(),
-    createQueryBuilder: jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getCount: jest.fn().mockResolvedValue(5),
-    })),
+    createQueryBuilder: jest.fn(() => mockTaskQueryBuilder),
   };
 
   beforeEach(async () => {
@@ -110,6 +116,33 @@ describe('SprintsService', () => {
         taskCount: 10,
         completedTaskCount: 5, // from mocked query builder
       });
+    });
+  });
+
+  describe("getSprintTasks", () => {
+    it("should use optimized queries (loadRelationCountAndMap) for comments and attachments", async () => {
+      const sprintId = "sprint-1";
+      const mockSprint = { id: sprintId, startDate: new Date() };
+      mockSprintsRepository.findOne.mockResolvedValue(mockSprint);
+
+      const mockTasks = [
+        { uid: "t1", title: "Task 1", commentCount: 2, attachmentCount: 1, subtasks: [] },
+      ];
+      mockTaskQueryBuilder.getMany.mockResolvedValue(mockTasks);
+
+      const result = await service.getSprintTasks(sprintId);
+
+      // Verify query builder usage
+      expect(mockTasksRepository.createQueryBuilder).toHaveBeenCalledWith("task");
+      expect(mockTaskQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith("task.subtasks", "subtask");
+
+      // Verify optimization: using loadRelationCountAndMap instead of leftJoinAndSelect for comments/attachments
+      expect(mockTaskQueryBuilder.loadRelationCountAndMap).toHaveBeenCalledWith("task.commentCount", "task.comments");
+      expect(mockTaskQueryBuilder.loadRelationCountAndMap).toHaveBeenCalledWith("task.attachmentCount", "task.attachments");
+
+      // Verify result mapping
+      expect(result[0].comments).toBe(2);
+      expect(result[0].attachments).toBe(1);
     });
   });
 });
