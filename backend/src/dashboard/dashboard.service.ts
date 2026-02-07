@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, In, MoreThanOrEqual } from "typeorm";
 import { Project } from "../projects/entities/project.entity";
 import { Task, TaskStatus, TaskPriority } from "../tasks/entities/task.entity";
+import { Comment } from "../tasks/entities/comment.entity";
 import { Sprint } from "../sprints/entities/sprint.entity";
 import { User } from "../users/entities/user.entity";
 import { Cost } from "../costs/entities/cost.entity";
@@ -397,7 +398,7 @@ export class DashboardService {
             });
 
             // If no tasks but projects exist, show at least 1 to indicate projects exist
-            if (total === 0 && projectCount > 0) {
+            if (total === 0 && projects.length > 0) {
               total = 1;
             }
           } else {
@@ -927,36 +928,26 @@ export class DashboardService {
       // Create lookup maps
       const budgetMap = new Map<string, number>();
       let totalBudget = 0;
-      for (const budget of budgets) {
-        const amount =
-          typeof budget.amount === "string"
-            ? parseFloat(budget.amount)
-            : Number(budget.amount || 0);
-        totalBudget += isNaN(amount) ? 0 : amount;
+      for (const item of budgetSums) {
+        const val = parseSum(item);
+        totalBudget += val;
+        budgetMap.set(item.projectId, val);
       }
 
       // Calculate total spent (costs + expenses)
       let totalSpent = 0;
-      for (const cost of costs) {
-        const amount =
-          typeof cost.amount === "string"
-            ? parseFloat(cost.amount)
-            : Number(cost.amount || 0);
-        totalSpent += isNaN(amount) ? 0 : amount;
-      }
-      const expenseMap = new Map<string, number>();
-      for (const expense of expenses) {
-        const amount =
-          typeof expense.amount === "string"
-            ? parseFloat(expense.amount)
-            : Number(expense.amount || 0);
-        const val = isNaN(amount) ? 0 : amount;
+      const costMap = new Map<string, number>();
+      for (const item of costSums) {
+        const val = parseSum(item);
         totalSpent += val;
+        costMap.set(item.projectId, val);
+      }
 
-        if (expense.projectId) {
-          const current = expenseMap.get(expense.projectId) || 0;
-          expenseMap.set(expense.projectId, current + val);
-        }
+      const expenseMap = new Map<string, number>();
+      for (const item of expenseSums) {
+        const val = parseSum(item);
+        totalSpent += val;
+        expenseMap.set(item.projectId, val);
       }
 
       const remainingBudget = totalBudget - totalSpent;
@@ -967,38 +958,9 @@ export class DashboardService {
 
       // Group by project using maps
       const projectBudgets = projects.map((project) => {
-        let projectBudget = 0;
-        for (const b of budgets) {
-          if (b.projectId === project.uid) {
-            const amount =
-              typeof b.amount === "string"
-                ? parseFloat(b.amount)
-                : Number(b.amount || 0);
-            projectBudget += isNaN(amount) ? 0 : amount;
-          }
-        }
-
-        let projectCosts = 0;
-        for (const c of costs) {
-          if (c.projectId === project.uid) {
-            const amount =
-              typeof c.amount === "string"
-                ? parseFloat(c.amount)
-                : Number(c.amount || 0);
-            projectCosts += isNaN(amount) ? 0 : amount;
-          }
-        }
-
-        let projectExpenses = 0;
-        for (const e of expenses) {
-          if (e.projectId === project.uid) {
-            const amount =
-              typeof e.amount === "string"
-                ? parseFloat(e.amount)
-                : Number(e.amount || 0);
-            projectExpenses += isNaN(amount) ? 0 : amount;
-          }
-        }
+        const projectBudget = budgetMap.get(project.uid) || 0;
+        const projectCosts = costMap.get(project.uid) || 0;
+        const projectExpenses = expenseMap.get(project.uid) || 0;
 
         const projectSpent = projectCosts + projectExpenses;
         const projectRemaining = projectBudget - projectSpent;
@@ -1176,15 +1138,47 @@ export class DashboardService {
     const now = new Date();
     const data = [];
 
+    // Pre-calculate dates for the 14-day window
+    const dates = [];
     for (let i = 0; i < days; i++) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - (days - i));
-      const remaining = tasks.filter(
-        (t) =>
-          t.status !== "complete" &&
-          (!t.createdAt || new Date(t.createdAt) <= date),
-      ).length;
-      const ideal = Math.max(0, tasks.length - (tasks.length / days) * i);
+      const d = new Date(now);
+      d.setDate(d.getDate() - (days - i));
+      dates.push(d);
+    }
+
+    // Filter tasks that are not complete (status check is constant)
+    const activeTasks = tasks.filter((t) => t.status !== "complete");
+
+    // Tasks with no createdAt always count for all days
+    const noDateCount = activeTasks.filter((t) => !t.createdAt).length;
+
+    // For tasks with createdAt, we only count them if createdAt <= date.
+    // Convert all createdAt to timestamps once and sort.
+    const datedTaskTimes = activeTasks
+      .filter((t) => t.createdAt)
+      .map((t) => new Date(t.createdAt).getTime())
+      .sort((a, b) => a - b);
+
+    let currentTaskIdx = 0;
+    const totalTasks = tasks.length;
+
+    for (let i = 0; i < days; i++) {
+      const date = dates[i];
+      const thresholdTime = date.getTime();
+
+      // Move the index forward to include all tasks created on or before this date
+      while (
+        currentTaskIdx < datedTaskTimes.length &&
+        datedTaskTimes[currentTaskIdx] <= thresholdTime
+      ) {
+        currentTaskIdx++;
+      }
+
+      // Total remaining = (tasks with no date) + (tasks with date <= current date)
+      const remaining = noDateCount + currentTaskIdx;
+
+      // Ideal burn down calculation
+      const ideal = Math.max(0, totalTasks - (totalTasks / days) * i);
 
       data.push({
         date,

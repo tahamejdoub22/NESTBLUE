@@ -9,6 +9,7 @@ jest.mock("bcrypt", () => ({
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Project } from "../projects/entities/project.entity";
 import { Task } from "../tasks/entities/task.entity";
+import { Comment } from "../tasks/entities/comment.entity";
 import { Sprint } from "../sprints/entities/sprint.entity";
 import { User } from "../users/entities/user.entity";
 import { Cost } from "../costs/entities/cost.entity";
@@ -121,9 +122,9 @@ describe("DashboardService", () => {
           useValue: mockSprintsRepository,
         },
         { provide: getRepositoryToken(User), useValue: mockRepository },
-        { provide: getRepositoryToken(Cost), useValue: mockRepository },
-        { provide: getRepositoryToken(Expense), useValue: mockRepository },
-        { provide: getRepositoryToken(Budget), useValue: mockRepository },
+        { provide: getRepositoryToken(Cost), useValue: mockCostsRepository },
+        { provide: getRepositoryToken(Expense), useValue: mockExpensesRepository },
+        { provide: getRepositoryToken(Budget), useValue: mockBudgetsRepository },
         {
           provide: getRepositoryToken(Notification),
           useValue: mockNotificationsRepository,
@@ -301,5 +302,66 @@ describe("DashboardService", () => {
         ]),
       }),
     );
+  });
+
+  it("should generate correct burn-down data", async () => {
+    const now = new Date();
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    const tasks = [
+      // Task created 10 days ago, still todo
+      {
+        uid: "t1",
+        status: "todo",
+        createdAt: new Date(now.getTime() - 10 * dayMs),
+        priority: "medium",
+      } as Task,
+      // Task created 5 days ago, completed (should be ignored)
+      {
+        uid: "t2",
+        status: "complete",
+        createdAt: new Date(now.getTime() - 5 * dayMs),
+        priority: "high",
+      } as Task,
+      // Task created 2 days ago, todo
+      {
+        uid: "t3",
+        status: "todo",
+        createdAt: new Date(now.getTime() - 2 * dayMs),
+        priority: "low",
+      } as Task,
+      // Task with no date (should be counted for all days)
+      {
+        uid: "t4",
+        status: "todo",
+        priority: "medium",
+      } as Task,
+    ];
+
+    mockTasksRepository.find.mockResolvedValue(tasks);
+
+    const result = await service.getProjectStatistics();
+    const burnDown = result.burnDownData;
+
+    expect(burnDown).toHaveLength(14);
+
+    // Verify counts based on timeline
+    // Day 0 (14 days ago) to Day 3 (11 days ago): Only t4 exists (count 1)
+    expect(burnDown[0].remaining).toBe(1);
+    expect(burnDown[3].remaining).toBe(1);
+
+    // Day 4 (10 days ago) to Day 11 (3 days ago): t1 appears (count 2)
+    // Note: strict inequality checks on Date might vary slightly based on execution time,
+    // but with integer days it should be stable.
+    expect(burnDown[4].remaining).toBe(2);
+    expect(burnDown[11].remaining).toBe(2);
+
+    // Day 12 (2 days ago) to Day 13 (Today): t3 appears (count 3)
+    expect(burnDown[12].remaining).toBe(3);
+    expect(burnDown[13].remaining).toBe(3);
+
+    // Ensure completed task t2 never affected the count
+    const maxRemaining = Math.max(...burnDown.map((d) => d.remaining));
+    expect(maxRemaining).toBe(3);
   });
 });
