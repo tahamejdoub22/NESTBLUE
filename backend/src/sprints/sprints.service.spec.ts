@@ -21,20 +21,20 @@ describe("SprintsService", () => {
     update: jest.fn(),
   };
 
-  const mockTaskQueryBuilder = {
+  const createQueryBuilderMock = {
     leftJoinAndSelect: jest.fn().mockReturnThis(),
     loadRelationCountAndMap: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
-    getMany: jest.fn().mockResolvedValue([]),
+    getMany: jest.fn(),
     getCount: jest.fn().mockResolvedValue(5),
   };
 
   const mockTasksRepository = {
     find: jest.fn(),
     count: jest.fn(),
-    createQueryBuilder: jest.fn(() => mockTaskQueryBuilder),
+    createQueryBuilder: jest.fn(() => createQueryBuilderMock),
   };
 
   beforeEach(async () => {
@@ -59,6 +59,9 @@ describe("SprintsService", () => {
     tasksRepository = module.get<Repository<Task>>(getRepositoryToken(Task));
 
     jest.clearAllMocks();
+    createQueryBuilderMock.leftJoinAndSelect.mockClear();
+    createQueryBuilderMock.loadRelationCountAndMap.mockClear();
+    createQueryBuilderMock.getMany.mockClear();
   });
 
   describe("findAll", () => {
@@ -120,29 +123,33 @@ describe("SprintsService", () => {
   });
 
   describe("getSprintTasks", () => {
-    it("should use optimized queries (loadRelationCountAndMap) for comments and attachments", async () => {
-      const sprintId = "sprint-1";
-      const mockSprint = { id: sprintId, startDate: new Date() };
-      mockSprintsRepository.findOne.mockResolvedValue(mockSprint);
-
+    it("should use loadRelationCountAndMap for attachments instead of leftJoinAndSelect", async () => {
+      const sprintId = "test-sprint";
+      const mockSprint = { id: sprintId };
       const mockTasks = [
-        { uid: "t1", title: "Task 1", commentCount: 2, attachmentCount: 1, subtasks: [] },
+        {
+          uid: "task-1",
+          subtasks: [],
+          comments: [],
+          attachmentCount: 3, // Mocked result from loadRelationCountAndMap
+          attachments: undefined // Should be undefined or ignored as it's not loaded
+        }
       ];
-      mockTaskQueryBuilder.getMany.mockResolvedValue(mockTasks);
+
+      mockSprintsRepository.findOne.mockResolvedValue(mockSprint);
+      createQueryBuilderMock.getMany.mockResolvedValue(mockTasks);
 
       const result = await service.getSprintTasks(sprintId);
 
-      // Verify query builder usage
-      expect(mockTasksRepository.createQueryBuilder).toHaveBeenCalledWith("task");
-      expect(mockTaskQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith("task.subtasks", "subtask");
+      expect(createQueryBuilderMock.leftJoinAndSelect).toHaveBeenCalledWith("task.subtasks", "subtask");
+      expect(createQueryBuilderMock.leftJoinAndSelect).toHaveBeenCalledWith("task.comments", "comment");
 
-      // Verify optimization: using loadRelationCountAndMap instead of leftJoinAndSelect for comments/attachments
-      expect(mockTaskQueryBuilder.loadRelationCountAndMap).toHaveBeenCalledWith("task.commentCount", "task.comments");
-      expect(mockTaskQueryBuilder.loadRelationCountAndMap).toHaveBeenCalledWith("task.attachmentCount", "task.attachments");
+      // Verify optimization:
+      expect(createQueryBuilderMock.leftJoinAndSelect).not.toHaveBeenCalledWith("task.attachments", "attachment");
+      expect(createQueryBuilderMock.loadRelationCountAndMap).toHaveBeenCalledWith("task.attachmentCount", "task.attachments");
 
-      // Verify result mapping
-      expect(result[0].comments).toBe(2);
-      expect(result[0].attachments).toBe(1);
+      // Verify mapping
+      expect(result[0].attachments).toBe(3);
     });
   });
 });

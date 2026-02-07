@@ -82,7 +82,7 @@ export class SprintsService {
       const tasks = await this.tasksRepository
         .createQueryBuilder("task")
         .leftJoinAndSelect("task.subtasks", "subtask")
-        .loadRelationCountAndMap("task.commentCount", "task.comments")
+        .leftJoinAndSelect("task.comments", "comment")
         .loadRelationCountAndMap("task.attachmentCount", "task.attachments")
         .where("task.sprintId = :sprintId", { sprintId })
         .orderBy("task.createdAt", "DESC")
@@ -103,7 +103,7 @@ export class SprintsService {
         dueDate: task.dueDate,
         startDate: task.startDate,
         subtasks: task.subtasks || [],
-        comments: (task as any).commentCount || 0,
+        comments: task.comments || [],
         attachments: (task as any).attachmentCount || 0,
         estimatedCost: task.estimatedCost,
         createdAt: task.createdAt,
