@@ -1,13 +1,13 @@
-import { Test, TestingModule } from '@nestjs/testing';
-jest.mock('bcrypt', () => ({
+import { Test, TestingModule } from "@nestjs/testing";
+jest.mock("bcrypt", () => ({
   hash: jest.fn(),
   compare: jest.fn(),
   genSalt: jest.fn(),
 }));
-import { UsersService } from './users.service';
-import { User } from './entities/user.entity';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { UsersService } from "./users.service";
+import { User } from "./entities/user.entity";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 
 const mockUsersRepository = {
   create: jest.fn(),
@@ -48,11 +48,24 @@ describe("UsersService", () => {
   describe("findByIds", () => {
     it("should return an array of users", async () => {
       const users = [new User(), new User()];
-      jest.spyOn(repository, "findBy").mockResolvedValue(users);
+      jest.spyOn(repository, "find").mockResolvedValue(users);
 
       const result = await service.findByIds(["1", "2"]);
       expect(result).toEqual(users);
-      expect(repository.findBy).toHaveBeenCalled();
+      expect(repository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: [
+            "id",
+            "name",
+            "email",
+            "avatar",
+            "role",
+            "status",
+            "createdAt",
+            "updatedAt",
+          ],
+        }),
+      );
     });
   });
 });

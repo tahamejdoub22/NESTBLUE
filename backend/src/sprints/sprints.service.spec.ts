@@ -1,16 +1,16 @@
-import { Test, TestingModule } from '@nestjs/testing';
-jest.mock('bcrypt', () => ({
+import { Test, TestingModule } from "@nestjs/testing";
+jest.mock("bcrypt", () => ({
   hash: jest.fn(),
   compare: jest.fn(),
   genSalt: jest.fn(),
 }));
-import { SprintsService } from './sprints.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Sprint } from './entities/sprint.entity';
-import { Task } from '../tasks/entities/task.entity';
-import { Repository } from 'typeorm';
+import { SprintsService } from "./sprints.service";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Sprint } from "./entities/sprint.entity";
+import { Task } from "../tasks/entities/task.entity";
+import { Repository } from "typeorm";
 
-describe('SprintsService', () => {
+describe("SprintsService", () => {
   let service: SprintsService;
   let sprintsRepository: Repository<Sprint>;
   let tasksRepository: Repository<Task>;

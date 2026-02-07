@@ -61,10 +61,10 @@ export class DashboardService {
 
       // Optimization: Get comment counts per user (avoids loading all comments for all tasks)
       const commentCounts = await this.commentsRepository
-        .createQueryBuilder('comment')
-        .select('comment.authorId', 'authorId')
-        .addSelect('COUNT(comment.id)', 'count')
-        .groupBy('comment.authorId')
+        .createQueryBuilder("comment")
+        .select("comment.authorId", "authorId")
+        .addSelect("COUNT(comment.id)", "count")
+        .groupBy("comment.authorId")
         .getRawMany();
 
       const commentCountMap = new Map<string, number>(
