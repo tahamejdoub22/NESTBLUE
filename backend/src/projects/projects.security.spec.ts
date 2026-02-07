@@ -1,26 +1,26 @@
-jest.mock('bcrypt', () => ({
-  hash: jest.fn().mockResolvedValue('hashed_password'),
+jest.mock("bcrypt", () => ({
+  hash: jest.fn().mockResolvedValue("hashed_password"),
   compare: jest.fn().mockResolvedValue(true),
-  genSalt: jest.fn().mockResolvedValue('salt'),
+  genSalt: jest.fn().mockResolvedValue("salt"),
 }));
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ProjectsService } from './projects.service';
-import { Project } from './entities/project.entity';
-import { ProjectMember } from './entities/project-member.entity';
-import { UsersService } from '../users/users.service';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Test, TestingModule } from "@nestjs/testing";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { ProjectsService } from "./projects.service";
+import { Project } from "./entities/project.entity";
+import { ProjectMember } from "./entities/project-member.entity";
+import { UsersService } from "../users/users.service";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
 
-describe('ProjectsService Security', () => {
+describe("ProjectsService Security", () => {
   let service: ProjectsService;
   let projectsRepository: Repository<Project>;
   let projectMembersRepository: Repository<ProjectMember>;
 
   const mockProject = {
-    uid: 'proj-123',
-    ownerId: 'owner-id',
+    uid: "proj-123",
+    ownerId: "owner-id",
     createdAt: new Date(),
     updatedAt: new Date(),
   } as Project;
@@ -53,39 +53,47 @@ describe('ProjectsService Security', () => {
     }).compile();
 
     service = module.get<ProjectsService>(ProjectsService);
-    projectsRepository = module.get<Repository<Project>>(getRepositoryToken(Project));
-    projectMembersRepository = module.get<Repository<ProjectMember>>(getRepositoryToken(ProjectMember));
+    projectsRepository = module.get<Repository<Project>>(
+      getRepositoryToken(Project),
+    );
+    projectMembersRepository = module.get<Repository<ProjectMember>>(
+      getRepositoryToken(ProjectMember),
+    );
   });
 
-  it('should allow access if user is owner', async () => {
-    jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
+  it("should allow access if user is owner", async () => {
+    jest.spyOn(projectsRepository, "findOne").mockResolvedValue(mockProject);
 
-    const result = await service.findOne('proj-123', 'owner-id');
+    const result = await service.findOne("proj-123", "owner-id");
     expect(result).toEqual(mockProject);
   });
 
-  it('should allow access if user is a member', async () => {
-    jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
-    jest.spyOn(projectMembersRepository, 'findOne').mockResolvedValue({ userId: 'member-id' } as ProjectMember);
+  it("should allow access if user is a member", async () => {
+    jest.spyOn(projectsRepository, "findOne").mockResolvedValue(mockProject);
+    jest
+      .spyOn(projectMembersRepository, "findOne")
+      .mockResolvedValue({ userId: "member-id" } as ProjectMember);
 
-    const result = await service.findOne('proj-123', 'member-id');
+    const result = await service.findOne("proj-123", "member-id");
     expect(result).toEqual(mockProject);
     expect(projectMembersRepository.findOne).toHaveBeenCalledWith({
-      where: { projectUid: 'proj-123', userId: 'member-id' },
+      where: { projectUid: "proj-123", userId: "member-id" },
     });
   });
 
-  it('should deny access if user is not owner nor member', async () => {
-    jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
-    jest.spyOn(projectMembersRepository, 'findOne').mockResolvedValue(null);
+  it("should deny access if user is not owner nor member", async () => {
+    jest.spyOn(projectsRepository, "findOne").mockResolvedValue(mockProject);
+    jest.spyOn(projectMembersRepository, "findOne").mockResolvedValue(null);
 
-    await expect(service.findOne('proj-123', 'stranger-id')).rejects.toThrow(ForbiddenException);
+    await expect(service.findOne("proj-123", "stranger-id")).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
-  it('should bypass check if userId is not provided (backward compatibility)', async () => {
-    jest.spyOn(projectsRepository, 'findOne').mockResolvedValue(mockProject);
+  it("should bypass check if userId is not provided (backward compatibility)", async () => {
+    jest.spyOn(projectsRepository, "findOne").mockResolvedValue(mockProject);
 
-    const result = await service.findOne('proj-123');
+    const result = await service.findOne("proj-123");
     expect(result).toEqual(mockProject);
     expect(projectMembersRepository.findOne).not.toHaveBeenCalled();
   });

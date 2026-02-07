@@ -1,5 +1,5 @@
-import { Test, TestingModule } from '@nestjs/testing';
-jest.mock('bcrypt', () => ({
+import { Test, TestingModule } from "@nestjs/testing";
+jest.mock("bcrypt", () => ({
   hash: jest.fn(),
   compare: jest.fn(),
   genSalt: jest.fn(),

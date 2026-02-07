@@ -26,6 +26,7 @@ export class UsersService {
     const user = this.usersRepository.create({
       ...createUserDto,
       emailVerificationToken: crypto.randomBytes(32).toString("hex"),
+      emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     });
 
     return this.usersRepository.save(user);
@@ -130,6 +131,7 @@ export class UsersService {
     await this.usersRepository.update(id, {
       emailVerified: true,
       emailVerificationToken: null,
+      emailVerificationExpires: null,
     });
   }
 

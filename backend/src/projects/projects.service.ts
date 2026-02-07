@@ -91,7 +91,7 @@ export class ProjectsService {
         });
 
         if (!member) {
-          throw new ForbiddenException('Access denied');
+          throw new ForbiddenException("Access denied");
         }
       }
 
@@ -138,7 +138,10 @@ export class ProjectsService {
   }
 
   // Team Members
-  async getProjectMembers(projectUid: string, checkAccessForUserId?: string): Promise<ProjectMember[]> {
+  async getProjectMembers(
+    projectUid: string,
+    checkAccessForUserId?: string,
+  ): Promise<ProjectMember[]> {
     await this.findOne(projectUid, checkAccessForUserId); // Verify project exists and check access
     return this.projectMembersRepository.find({
       where: { projectUid },
