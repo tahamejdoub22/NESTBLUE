@@ -582,11 +582,50 @@ export class DashboardService {
 
   private calculateProjectStatistics(tasks: Task[]) {
     const totalTasks = tasks.length;
-    const completedTasks = tasks.filter((t) => t.status === "complete").length;
-    const inProgressTasks = tasks.filter(
-      (t) => t.status === "in-progress",
-    ).length;
-    const todoTasks = tasks.filter((t) => t.status === "todo").length;
+
+    let completedTasks = 0;
+    let inProgressTasks = 0;
+    let todoTasks = 0;
+    let backlogTasks = 0;
+
+    let lowPriority = 0;
+    let mediumPriority = 0;
+    let highPriority = 0;
+    let urgentPriority = 0;
+
+    for (const t of tasks) {
+      // Status counts
+      switch (t.status) {
+        case "complete":
+          completedTasks++;
+          break;
+        case "in-progress":
+          inProgressTasks++;
+          break;
+        case "todo":
+          todoTasks++;
+          break;
+        case "backlog":
+          backlogTasks++;
+          break;
+      }
+
+      // Priority counts
+      switch (t.priority) {
+        case "low":
+          lowPriority++;
+          break;
+        case "medium":
+          mediumPriority++;
+          break;
+        case "high":
+          highPriority++;
+          break;
+        case "urgent":
+          urgentPriority++;
+          break;
+      }
+    }
 
     // Calculate progress percentage: completed + 50% of in-progress
     const progressPercentage =
@@ -609,14 +648,14 @@ export class DashboardService {
       todo: todoTasks,
       "in-progress": inProgressTasks,
       complete: completedTasks,
-      backlog: tasks.filter((t) => t.status === "backlog").length,
+      backlog: backlogTasks,
     };
 
     const priorityAnalysis = {
-      low: tasks.filter((t) => t.priority === "low").length,
-      medium: tasks.filter((t) => t.priority === "medium").length,
-      high: tasks.filter((t) => t.priority === "high").length,
-      urgent: tasks.filter((t) => t.priority === "urgent").length,
+      low: lowPriority,
+      medium: mediumPriority,
+      high: highPriority,
+      urgent: urgentPriority,
     };
 
     return {
@@ -927,28 +966,25 @@ export class DashboardService {
 
       // Create lookup maps
       let totalBudget = 0;
-
-      for (const b of budgetSums) {
-        const amount = parseSum(b);
-        totalBudget += amount;
-        budgetMap.set(b.projectId, amount);
+      for (const item of budgetSums) {
+        const val = parseSum(item);
+        totalBudget += val;
+        budgetMap.set(item.projectId, val);
       }
 
-      // Calculate total spent (costs + expenses)
-      let totalSpent = 0;
       const costMap = new Map<string, number>();
-
-      for (const c of costSums) {
-        const amount = parseSum(c);
-        totalSpent += amount;
-        costMap.set(c.projectId, amount);
+      let totalSpent = 0;
+      for (const item of costSums) {
+        const val = parseSum(item);
+        totalSpent += val;
+        costMap.set(item.projectId, val);
       }
 
       const expenseMap = new Map<string, number>();
-      for (const e of expenseSums) {
-        const amount = parseSum(e);
-        totalSpent += amount;
-        expenseMap.set(e.projectId, amount);
+      for (const item of expenseSums) {
+        const val = parseSum(item);
+        totalSpent += val; // Add to totalSpent
+        expenseMap.set(item.projectId, val);
       }
 
       const remainingBudget = totalBudget - totalSpent;
