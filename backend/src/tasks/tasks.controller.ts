@@ -115,7 +115,9 @@ export class TasksController {
   @Get(":uid")
   @ApiOperation({ summary: "Get task by UID" })
   async findOne(@Param("uid") uid: string, @Request() req) {
-    const task = await this.tasksService.findOne(uid);
+    const task = await this.tasksService.findOne(uid, {
+      relations: ["subtasks", "comments", "comments.author", "attachments"],
+    });
 
     // Check access
     if (task.projectId) {

@@ -62,10 +62,10 @@ export class DashboardService {
 
       // Optimization: Get comment counts per user (avoids loading all comments for all tasks)
       const commentCounts = await this.commentsRepository
-        .createQueryBuilder('comment')
-        .select('comment.authorId', 'authorId')
-        .addSelect('COUNT(comment.id)', 'count')
-        .groupBy('comment.authorId')
+        .createQueryBuilder("comment")
+        .select("comment.authorId", "authorId")
+        .addSelect("COUNT(comment.id)", "count")
+        .groupBy("comment.authorId")
         .getRawMany();
 
       const commentCountMap = new Map<string, number>(
@@ -317,24 +317,45 @@ export class DashboardService {
         .catch(() => []);
       console.log(`[ProjectOverview] Found ${allTasks.length} total tasks`);
 
-      // Group tasks by projectId for easier lookup
-      const tasksByProjectId: { [key: string]: Task[] } = {};
+      // Optimization: Pre-calculate monthly stats in a single pass O(T)
+      const monthStats = new Map<
+        string,
+        { total: number; completed: number }
+      >();
+
+      const getMonthKey = (date: Date) =>
+        `${date.getFullYear()}-${date.getMonth()}`;
+
+      const addStat = (key: string, type: "total" | "completed") => {
+        if (!monthStats.has(key)) {
+          monthStats.set(key, { total: 0, completed: 0 });
+        }
+        monthStats.get(key)![type]++;
+      };
+
       allTasks.forEach((task) => {
-        if (task.projectId) {
-          if (!tasksByProjectId[task.projectId]) {
-            tasksByProjectId[task.projectId] = [];
+        const createdDate = task.createdAt ? new Date(task.createdAt) : null;
+        const updatedDate = task.updatedAt ? new Date(task.updatedAt) : null;
+
+        // Track created month
+        let createdKey = null;
+        if (createdDate) {
+          createdKey = getMonthKey(createdDate);
+          addStat(createdKey, "total");
+          if (task.status === "complete") {
+            addStat(createdKey, "completed");
           }
-          tasksByProjectId[task.projectId].push(task);
+        }
+
+        // Track completed month (if completed in a different month than created)
+        if (task.status === "complete" && updatedDate) {
+          const updatedKey = getMonthKey(updatedDate);
+          if (updatedKey !== createdKey) {
+            addStat(updatedKey, "total");
+            addStat(updatedKey, "completed");
+          }
         }
       });
-
-      console.log(
-        `[ProjectOverview] Tasks grouped by project:`,
-        Object.keys(tasksByProjectId).map((pid) => ({
-          projectId: pid,
-          taskCount: tasksByProjectId[pid].length,
-        })),
-      );
 
       const now = new Date();
       const months: {
@@ -357,15 +378,7 @@ export class DashboardService {
       for (let i = monthsToShow - 1; i >= 0; i--) {
         const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const monthKey = date.toLocaleDateString("en-US", { month: "short" });
-        const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-        const monthEnd = new Date(
-          date.getFullYear(),
-          date.getMonth() + 1,
-          0,
-          23,
-          59,
-          59,
-        );
+        const key = getMonthKey(date);
 
         // Check if this is a future month
         const isProjected = date > now;
@@ -378,77 +391,21 @@ export class DashboardService {
 
         if (!isProjected) {
           if (isCurrentMonth) {
-            // For current month: Show ALL tasks from ALL projects (regardless of creation date)
-            projects.forEach((project) => {
-              const projectTasks = tasksByProjectId[project.uid] || [];
-              total += projectTasks.length;
-              completed += projectTasks.filter(
-                (t) => t.status === "complete",
-              ).length;
-            });
-
-            // Also count standalone tasks (no projectId)
-            allTasks.forEach((task) => {
-              if (!task.projectId) {
-                total++;
-                if (task.status === "complete") {
-                  completed++;
-                }
-              }
-            });
+            // For current month: Show ALL tasks (active snapshot)
+            total = allTasks.length;
+            completed = allTasks.filter((t) => t.status === "complete").length;
 
             // If no tasks but projects exist, show at least 1 to indicate projects exist
             if (total === 0 && projects.length > 0) {
               total = 1;
             }
           } else {
-            // For past months: Show tasks created or completed in that month
-            projects.forEach((project) => {
-              const projectTasks = tasksByProjectId[project.uid] || [];
-              projectTasks.forEach((task) => {
-                const taskCreatedDate = task.createdAt
-                  ? new Date(task.createdAt)
-                  : null;
-                const taskUpdatedDate = task.updatedAt
-                  ? new Date(task.updatedAt)
-                  : null;
-
-                // Task was created in this month
-                if (
-                  taskCreatedDate &&
-                  taskCreatedDate >= monthStart &&
-                  taskCreatedDate <= monthEnd
-                ) {
-                  total++;
-                  if (task.status === "complete") {
-                    completed++;
-                  }
-                }
-                // Task was completed in this month (even if created earlier)
-                else if (
-                  task.status === "complete" &&
-                  taskUpdatedDate &&
-                  taskUpdatedDate >= monthStart &&
-                  taskUpdatedDate <= monthEnd
-                ) {
-                  total++;
-                  completed++;
-                }
-              });
-            });
-
-            // Count standalone tasks created/updated in this month
-            allTasks.forEach((task) => {
-              if (!task.projectId) {
-                const taskDate = task.createdAt || task.updatedAt || new Date();
-                if (taskDate >= monthStart && taskDate <= monthEnd) {
-                  total++;
-                  if (task.status === "complete") {
-                    completed++;
-                  }
-                }
-              }
-            });
+            // For past months: Use pre-calculated stats
+            const stats = monthStats.get(key);
+            if (stats) {
+              total = stats.total;
+              completed = stats.completed;
+            }
           }
         }
 
@@ -457,57 +414,8 @@ export class DashboardService {
           completed: completed || 0,
           total: total || 0,
           isProjected,
-          isHighlighted: isCurrentMonth, // Highlight current month
+          isHighlighted: isCurrentMonth,
         });
-      }
-
-      // If no data at all but projects exist, ensure we show data
-      const hasAnyData = months.some((m) => m.total > 0);
-      console.log(
-        `[ProjectOverview] Has any data: ${hasAnyData}, Projects: ${projects.length}, Tasks: ${allTasks.length}`,
-      );
-
-      // Final check: ensure current month has data if projects exist
-      if (projects.length > 0) {
-        const currentMonthKey = now.toLocaleDateString("en-US", {
-          month: "short",
-        });
-        const currentMonthIndex = months.findIndex(
-          (m) => m.month === currentMonthKey,
-        );
-        if (currentMonthIndex >= 0 && months[currentMonthIndex].total === 0) {
-          // Double-check: count all tasks one more time
-          let finalTotal = 0;
-          let finalCompleted = 0;
-
-          projects.forEach((project) => {
-            const projectTasks = tasksByProjectId[project.uid] || [];
-            finalTotal += projectTasks.length;
-            finalCompleted += projectTasks.filter(
-              (t) => t.status === "complete",
-            ).length;
-          });
-
-          allTasks.forEach((task) => {
-            if (!task.projectId) {
-              finalTotal++;
-              if (task.status === "complete") {
-                finalCompleted++;
-              }
-            }
-          });
-
-          // If still no tasks, show at least 1 to indicate projects exist
-          if (finalTotal === 0) {
-            finalTotal = 1;
-          }
-
-          months[currentMonthIndex].total = finalTotal;
-          months[currentMonthIndex].completed = finalCompleted;
-          console.log(
-            `[ProjectOverview] Final current month data: ${finalTotal} total, ${finalCompleted} completed`,
-          );
-        }
       }
 
       console.log(
@@ -582,11 +490,50 @@ export class DashboardService {
 
   private calculateProjectStatistics(tasks: Task[]) {
     const totalTasks = tasks.length;
-    const completedTasks = tasks.filter((t) => t.status === "complete").length;
-    const inProgressTasks = tasks.filter(
-      (t) => t.status === "in-progress",
-    ).length;
-    const todoTasks = tasks.filter((t) => t.status === "todo").length;
+
+    let completedTasks = 0;
+    let inProgressTasks = 0;
+    let todoTasks = 0;
+    let backlogTasks = 0;
+
+    let lowPriority = 0;
+    let mediumPriority = 0;
+    let highPriority = 0;
+    let urgentPriority = 0;
+
+    for (const t of tasks) {
+      // Status counts
+      switch (t.status) {
+        case "complete":
+          completedTasks++;
+          break;
+        case "in-progress":
+          inProgressTasks++;
+          break;
+        case "todo":
+          todoTasks++;
+          break;
+        case "backlog":
+          backlogTasks++;
+          break;
+      }
+
+      // Priority counts
+      switch (t.priority) {
+        case "low":
+          lowPriority++;
+          break;
+        case "medium":
+          mediumPriority++;
+          break;
+        case "high":
+          highPriority++;
+          break;
+        case "urgent":
+          urgentPriority++;
+          break;
+      }
+    }
 
     // Calculate progress percentage: completed + 50% of in-progress
     const progressPercentage =
@@ -609,14 +556,14 @@ export class DashboardService {
       todo: todoTasks,
       "in-progress": inProgressTasks,
       complete: completedTasks,
-      backlog: tasks.filter((t) => t.status === "backlog").length,
+      backlog: backlogTasks,
     };
 
     const priorityAnalysis = {
-      low: tasks.filter((t) => t.priority === "low").length,
-      medium: tasks.filter((t) => t.priority === "medium").length,
-      high: tasks.filter((t) => t.priority === "high").length,
-      urgent: tasks.filter((t) => t.priority === "urgent").length,
+      low: lowPriority,
+      medium: mediumPriority,
+      high: highPriority,
+      urgent: urgentPriority,
     };
 
     return {
@@ -926,7 +873,17 @@ export class DashboardService {
       const parseSum = (item: any) => (item.total ? parseFloat(item.total) : 0);
 
       // Create lookup maps
-      const budgetMap = new Map<string, number>();
+      const budgetMap = new Map<string, number>(
+        budgetSums.map((b) => [b.projectId, parseSum(b)]),
+      );
+      const costMap = new Map<string, number>(
+        costSums.map((c) => [c.projectId, parseSum(c)]),
+      );
+      const expenseMap = new Map<string, number>(
+        expenseSums.map((e) => [e.projectId, parseSum(e)]),
+      );
+
+      // Calculate totals from maps
       let totalBudget = 0;
       for (const item of budgetSums) {
         const val = parseSum(item);
@@ -934,7 +891,6 @@ export class DashboardService {
         budgetMap.set(item.projectId, val);
       }
 
-      // Calculate total spent (costs + expenses)
       let totalSpent = 0;
       const costMap = new Map<string, number>();
       for (const item of costSums) {
@@ -956,7 +912,7 @@ export class DashboardService {
       const budgetUtilization =
         totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-      // Group by project using maps
+      // Group by project using aggregation results
       const projectBudgets = projects.map((project) => {
         const projectBudget = budgetMap.get(project.uid) || 0;
         const projectCosts = costMap.get(project.uid) || 0;

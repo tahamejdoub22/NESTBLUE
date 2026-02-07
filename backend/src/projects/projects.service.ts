@@ -91,7 +91,7 @@ export class ProjectsService {
         });
 
         if (!member) {
-          throw new ForbiddenException('Access denied');
+          throw new ForbiddenException("Access denied");
         }
       }
 
@@ -138,7 +138,10 @@ export class ProjectsService {
   }
 
   // Team Members
-  async getProjectMembers(projectUid: string, checkAccessForUserId?: string): Promise<ProjectMember[]> {
+  async getProjectMembers(
+    projectUid: string,
+    checkAccessForUserId?: string,
+  ): Promise<ProjectMember[]> {
     await this.findOne(projectUid, checkAccessForUserId); // Verify project exists and check access
     return this.projectMembersRepository.find({
       where: { projectUid },
@@ -196,7 +199,9 @@ export class ProjectsService {
 
     for (const userId of userIds) {
       if (!foundUserIds.has(userId)) {
-        errors.push(`Failed to invite user ${userId}: User with ID ${userId} not found`);
+        errors.push(
+          `Failed to invite user ${userId}: User with ID ${userId} not found`,
+        );
         continue;
       }
 
@@ -220,7 +225,9 @@ export class ProjectsService {
     }
 
     if (results.length === 0 && errors.length > 0) {
-      throw new BadRequestException(`Failed to invite any members: ${errors.join('; ')}`);
+      throw new BadRequestException(
+        `Failed to invite any members: ${errors.join("; ")}`,
+      );
     }
   }
 
@@ -229,6 +236,8 @@ export class ProjectsService {
     inviterId: string,
   ): Promise<void> {
     const project = await this.findOne(projectUid);
+
+    if (project.ownerId === inviterId) return;
 
     // Check if inviter is owner or admin
     const inviterMember = await this.projectMembersRepository.findOne({
@@ -245,20 +254,24 @@ export class ProjectsService {
         "You do not have permission to invite members",
       );
     }
+  }
 
+  async addMemberToProject(
+    projectUid: string,
+    userId: string,
+    role: ProjectMemberRole,
+    invitedById: string,
+  ): Promise<ProjectMember> {
     // Check if user exists
-    let user;
     try {
-      user = await this.usersService.findOne(inviteDto.userId);
+      await this.usersService.findOne(userId);
     } catch (e) {
-      throw new BadRequestException(
-        `User with ID ${inviteDto.userId} not found`,
-      );
+      throw new BadRequestException(`User with ID ${userId} not found`);
     }
 
     // Check if already member
     const existing = await this.projectMembersRepository.findOne({
-      where: { projectUid, userId: inviteDto.userId },
+      where: { projectUid, userId },
     });
     if (existing) {
       throw new BadRequestException("User is already a member of this project");
@@ -266,9 +279,9 @@ export class ProjectsService {
 
     const member = this.projectMembersRepository.create({
       projectUid,
-      userId: inviteDto.userId,
-      role: inviteDto.role,
-      invitedById: inviterId,
+      userId,
+      role,
+      invitedById,
     });
 
     return this.projectMembersRepository.save(member);
@@ -284,22 +297,7 @@ export class ProjectsService {
     }
 
     // Verify inviter has permission
-    const project = await this.findOne(projectUid);
-    const inviterMember = await this.projectMembersRepository.findOne({
-      where: { projectUid, userId: inviterId },
-    });
-
-    if (
-      project.ownerId !== inviterId &&
-      (!inviterMember ||
-        ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(
-          inviterMember.role,
-        ))
-    ) {
-      throw new ForbiddenException(
-        "You do not have permission to invite members",
-      );
-    }
+    await this.validateInvitePermissions(projectUid, inviterId);
 
     // Fetch all users to be invited
     const foundUsers = await this.usersService.findByIds(inviteDto.userIds);

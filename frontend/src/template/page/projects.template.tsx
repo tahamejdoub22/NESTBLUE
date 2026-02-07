@@ -4,11 +4,6 @@ import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/atoms/button";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/atoms/tooltip";
-import {
   Card,
   CardContent,
   CardDescription,
@@ -17,7 +12,6 @@ import {
 } from "@/components/atoms/card";
 import { Badge } from "@/components/atoms/badge";
 import { Progress } from "@/components/atoms/progress";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { Input } from "@/components/atoms/input";
 import {
   Select,
@@ -42,13 +36,13 @@ import {
   CheckCircle2,
   Clock,
   Pencil,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fadeInUp, staggerContainer, transitions } from "@/lib/motion";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { format } from "date-fns";
@@ -282,7 +276,7 @@ export function ProjectsPageTemplate(props: ProjectsPageTemplateProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant={viewMode === "grid" ? "default" : "ghost"}
+                  variant={viewMode === "grid" ? "primary" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("grid")}
                   className="h-7 px-2"
@@ -296,7 +290,7 @@ export function ProjectsPageTemplate(props: ProjectsPageTemplateProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant={viewMode === "list" ? "default" : "ghost"}
+                  variant={viewMode === "list" ? "primary" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("list")}
                   className="h-7 px-2"
@@ -599,6 +593,19 @@ export function ProjectsPageTemplate(props: ProjectsPageTemplateProps) {
                     ? "Try adjusting your search or filters"
                     : "Get started by creating your first project"}
                 </p>
+                {(searchQuery || statusFilter !== "all") && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setStatusFilter("all");
+                    }}
+                    className="mb-4"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Clear Filters
+                  </Button>
+                )}
                 {!searchQuery && statusFilter === "all" && (
                   <Button onClick={onCreateProject}>
                     <Plus className="h-4 w-4 mr-2" />
