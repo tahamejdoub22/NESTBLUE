@@ -57,6 +57,10 @@ export class User extends BaseEntity {
   @Exclude()
   emailVerificationToken: string;
 
+  @Column({ type: "timestamptz", nullable: true })
+  @Exclude()
+  emailVerificationExpires: Date;
+
   @Column({ type: "varchar", length: 255, nullable: true })
   @Exclude()
   passwordResetToken: string;

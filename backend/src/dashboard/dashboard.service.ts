@@ -62,10 +62,10 @@ export class DashboardService {
 
       // Optimization: Get comment counts per user (avoids loading all comments for all tasks)
       const commentCounts = await this.commentsRepository
-        .createQueryBuilder('comment')
-        .select('comment.authorId', 'authorId')
-        .addSelect('COUNT(comment.id)', 'count')
-        .groupBy('comment.authorId')
+        .createQueryBuilder("comment")
+        .select("comment.authorId", "authorId")
+        .addSelect("COUNT(comment.id)", "count")
+        .groupBy("comment.authorId")
         .getRawMany();
 
       const commentCountMap = new Map<string, number>(
@@ -926,7 +926,6 @@ export class DashboardService {
       const parseSum = (item: any) => (item.total ? parseFloat(item.total) : 0);
 
       // Create lookup maps
-      const budgetMap = new Map<string, number>();
       let totalBudget = 0;
 
       for (const b of budgetSums) {
@@ -958,7 +957,7 @@ export class DashboardService {
       const budgetUtilization =
         totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-      // Group by project using maps
+      // Group by project using aggregation results
       const projectBudgets = projects.map((project) => {
         const projectBudget = budgetMap.get(project.uid) || 0;
         const projectCosts = costMap.get(project.uid) || 0;
