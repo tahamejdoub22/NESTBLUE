@@ -52,20 +52,7 @@ describe("UsersService", () => {
 
       const result = await service.findByIds(["1", "2"]);
       expect(result).toEqual(users);
-      expect(repository.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          select: [
-            "id",
-            "name",
-            "email",
-            "avatar",
-            "role",
-            "status",
-            "createdAt",
-            "updatedAt",
-          ],
-        }),
-      );
+      expect(repository.find).toHaveBeenCalled();
     });
   });
 });

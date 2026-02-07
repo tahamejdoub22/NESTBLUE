@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository, In, MoreThanOrEqual } from "typeorm";
 import { Project } from "../projects/entities/project.entity";
 import { Task, TaskStatus, TaskPriority } from "../tasks/entities/task.entity";
+import { Comment } from "../tasks/entities/comment.entity";
 import { Sprint } from "../sprints/entities/sprint.entity";
 import { User } from "../users/entities/user.entity";
 import { Cost } from "../costs/entities/cost.entity";
@@ -397,7 +398,7 @@ export class DashboardService {
             });
 
             // If no tasks but projects exist, show at least 1 to indicate projects exist
-            if (total === 0 && projectCount > 0) {
+            if (total === 0 && projects.length > 0) {
               total = 1;
             }
           } else {
@@ -925,38 +926,18 @@ export class DashboardService {
       const parseSum = (item: any) => (item.total ? parseFloat(item.total) : 0);
 
       // Create lookup maps
-      const budgetMap = new Map<string, number>();
       let totalBudget = 0;
-      for (const budget of budgets) {
-        const amount =
-          typeof budget.amount === "string"
-            ? parseFloat(budget.amount)
-            : Number(budget.amount || 0);
-        totalBudget += isNaN(amount) ? 0 : amount;
+      for (const b of budgetSums) {
+        totalBudget += parseSum(b);
       }
 
       // Calculate total spent (costs + expenses)
       let totalSpent = 0;
-      for (const cost of costs) {
-        const amount =
-          typeof cost.amount === "string"
-            ? parseFloat(cost.amount)
-            : Number(cost.amount || 0);
-        totalSpent += isNaN(amount) ? 0 : amount;
+      for (const c of costSums) {
+        totalSpent += parseSum(c);
       }
-      const expenseMap = new Map<string, number>();
-      for (const expense of expenses) {
-        const amount =
-          typeof expense.amount === "string"
-            ? parseFloat(expense.amount)
-            : Number(expense.amount || 0);
-        const val = isNaN(amount) ? 0 : amount;
-        totalSpent += val;
-
-        if (expense.projectId) {
-          const current = expenseMap.get(expense.projectId) || 0;
-          expenseMap.set(expense.projectId, current + val);
-        }
+      for (const e of expenseSums) {
+        totalSpent += parseSum(e);
       }
 
       const remainingBudget = totalBudget - totalSpent;
@@ -965,40 +946,22 @@ export class DashboardService {
       const budgetUtilization =
         totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-      // Group by project using maps
+      // Group by project using aggregation results
       const projectBudgets = projects.map((project) => {
-        let projectBudget = 0;
-        for (const b of budgets) {
-          if (b.projectId === project.uid) {
-            const amount =
-              typeof b.amount === "string"
-                ? parseFloat(b.amount)
-                : Number(b.amount || 0);
-            projectBudget += isNaN(amount) ? 0 : amount;
-          }
-        }
+        const budgetSum = budgetSums.find(
+          (b) => b.projectId === project.uid,
+        );
+        const projectBudget = budgetSum ? parseSum(budgetSum) : 0;
 
-        let projectCosts = 0;
-        for (const c of costs) {
-          if (c.projectId === project.uid) {
-            const amount =
-              typeof c.amount === "string"
-                ? parseFloat(c.amount)
-                : Number(c.amount || 0);
-            projectCosts += isNaN(amount) ? 0 : amount;
-          }
-        }
+        const costSum = costSums.find(
+          (c) => c.projectId === project.uid,
+        );
+        const projectCosts = costSum ? parseSum(costSum) : 0;
 
-        let projectExpenses = 0;
-        for (const e of expenses) {
-          if (e.projectId === project.uid) {
-            const amount =
-              typeof e.amount === "string"
-                ? parseFloat(e.amount)
-                : Number(e.amount || 0);
-            projectExpenses += isNaN(amount) ? 0 : amount;
-          }
-        }
+        const expenseSum = expenseSums.find(
+          (e) => e.projectId === project.uid,
+        );
+        const projectExpenses = expenseSum ? parseSum(expenseSum) : 0;
 
         const projectSpent = projectCosts + projectExpenses;
         const projectRemaining = projectBudget - projectSpent;

@@ -1,4 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
+// Mock bcrypt before imports
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
 import { ProjectsService } from "./projects.service";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Project } from "./entities/project.entity";
@@ -15,42 +21,30 @@ import {
 } from "@nestjs/common";
 import { User } from "../users/entities/user.entity";
 
-const mockProject = {
-  uid: "project-123",
-  ownerId: "owner-123",
-  owner: { id: "owner-123" },
-};
-
-const mockUser = {
-  id: "user-123",
-  email: "test@example.com",
-};
-
-const mockProjectMember = {
-  id: "member-123",
-  projectUid: "project-123",
-  userId: "user-123",
-  role: ProjectMemberRole.MEMBER,
-};
-
 describe("ProjectsService", () => {
   let service: ProjectsService;
-  let projectRepo: Repository<Project>;
-  let memberRepo: Repository<ProjectMember>;
+  let projectsRepository: Repository<Project>;
+  let projectMembersRepository: Repository<ProjectMember>;
   let usersService: UsersService;
 
   const mockProject = {
-    uid: "proj-123",
-    ownerId: "user-owner",
+    uid: "project-123",
+    ownerId: "owner-123",
     createdAt: new Date(),
     updatedAt: new Date(),
   } as Project;
 
-  const mockInviterMember = {
-    projectUid: "proj-123",
-    userId: "user-owner",
-    role: ProjectMemberRole.OWNER,
-  } as ProjectMember;
+  const mockUser = {
+    id: "user-123",
+    email: "test@example.com",
+  };
+
+  const mockProjectMember = {
+    id: "member-123",
+    projectUid: "project-123",
+    userId: "user-123",
+    role: ProjectMemberRole.MEMBER,
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({

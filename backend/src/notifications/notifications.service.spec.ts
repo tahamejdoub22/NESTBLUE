@@ -1,4 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
+// Mock bcrypt before imports
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
 import { NotificationsService } from "./notifications.service";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Notification, NotificationType } from "./entities/notification.entity";

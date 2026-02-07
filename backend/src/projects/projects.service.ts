@@ -165,77 +165,13 @@ export class ProjectsService {
     );
   }
 
-  async inviteMembers(
-    projectUid: string,
-    inviteDto: InviteMembersDto,
-    inviterId: string,
-  ): Promise<ProjectMember[]> {
-    if (!inviteDto.userIds || inviteDto.userIds.length === 0) {
-      throw new BadRequestException("At least one user ID is required");
-    }
-
-    const userIds = [...new Set(inviteDto.userIds)];
-    await this.validateInvitePermissions(projectUid, inviterId);
-
-    const userIds = [...new Set(inviteDto.userIds)];
-    const role = inviteDto.role || ProjectMemberRole.MEMBER;
-
-    // Fetch all users and existing members in bulk
-    const [users, existingMembers] = await Promise.all([
-      this.usersService.findByIds(userIds),
-      this.projectMembersRepository.find({
-        where: {
-          projectUid,
-          userId: In(userIds),
-        },
-      }),
-    ]);
-
-    const foundUserIds = new Set(users.map((u) => u.id));
-    const existingMemberIds = new Set(existingMembers.map((m) => m.userId));
-
-    const newMembersData: ProjectMember[] = [];
-    const errors: string[] = [];
-
-    for (const userId of userIds) {
-      if (!foundUserIds.has(userId)) {
-        errors.push(
-          `Failed to invite user ${userId}: User with ID ${userId} not found`,
-        );
-        continue;
-      }
-
-      if (existingMemberIds.has(userId)) {
-        continue;
-      }
-
-      newMembersData.push(
-        this.projectMembersRepository.create({
-          projectUid,
-          userId,
-          role,
-          invitedById: inviterId,
-        }),
-      );
-    }
-
-    let results: ProjectMember[] = [];
-    if (newMembersData.length > 0) {
-      results = await this.projectMembersRepository.save(newMembersData);
-    }
-
-    if (results.length === 0 && errors.length > 0) {
-      throw new BadRequestException(
-        `Failed to invite any members: ${errors.join("; ")}`,
-      );
-    }
-  }
-
   private async validateInvitePermissions(
     projectUid: string,
     inviterId: string,
   ): Promise<void> {
     const project = await this.findOne(projectUid);
+
+    if (project.ownerId === inviterId) return;
 
     // Check if inviter is owner or admin
     const inviterMember = await this.projectMembersRepository.findOne({
@@ -252,20 +188,24 @@ export class ProjectsService {
         "You do not have permission to invite members",
       );
     }
+  }
 
+  async addMemberToProject(
+    projectUid: string,
+    userId: string,
+    role: ProjectMemberRole,
+    invitedById: string,
+  ): Promise<ProjectMember> {
     // Check if user exists
-    let user;
     try {
-      user = await this.usersService.findOne(inviteDto.userId);
+      await this.usersService.findOne(userId);
     } catch (e) {
-      throw new BadRequestException(
-        `User with ID ${inviteDto.userId} not found`,
-      );
+      throw new BadRequestException(`User with ID ${userId} not found`);
     }
 
     // Check if already member
     const existing = await this.projectMembersRepository.findOne({
-      where: { projectUid, userId: inviteDto.userId },
+      where: { projectUid, userId },
     });
     if (existing) {
       throw new BadRequestException("User is already a member of this project");
@@ -273,9 +213,9 @@ export class ProjectsService {
 
     const member = this.projectMembersRepository.create({
       projectUid,
-      userId: inviteDto.userId,
-      role: inviteDto.role,
-      invitedById: inviterId,
+      userId,
+      role,
+      invitedById,
     });
 
     return this.projectMembersRepository.save(member);
@@ -291,22 +231,7 @@ export class ProjectsService {
     }
 
     // Verify inviter has permission
-    const project = await this.findOne(projectUid);
-    const inviterMember = await this.projectMembersRepository.findOne({
-      where: { projectUid, userId: inviterId },
-    });
-
-    if (
-      project.ownerId !== inviterId &&
-      (!inviterMember ||
-        ![ProjectMemberRole.OWNER, ProjectMemberRole.ADMIN].includes(
-          inviterMember.role,
-        ))
-    ) {
-      throw new ForbiddenException(
-        "You do not have permission to invite members",
-      );
-    }
+    await this.validateInvitePermissions(projectUid, inviterId);
 
     // Fetch all users to be invited
     const foundUsers = await this.usersService.findByIds(inviteDto.userIds);
