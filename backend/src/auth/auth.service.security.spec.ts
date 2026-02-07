@@ -67,4 +67,21 @@ describe("AuthService Security", () => {
       "If the email exists, a password reset link has been sent",
     );
   });
+
+  it("SECURITY FIX CHECK: should throw BadRequestException if verification token is expired", async () => {
+    // Mock user with expired token
+    const expiredUser = {
+      id: "user-id",
+      email: "test@example.com",
+      emailVerificationExpires: new Date(Date.now() - 3600 * 1000), // Expired 1 hour ago
+    };
+
+    usersService.findByEmailVerificationToken = jest
+      .fn()
+      .mockResolvedValue(expiredUser);
+
+    await expect(service.verifyEmail("expired-token")).rejects.toThrow(
+      "Verification token expired",
+    );
+  });
 });
