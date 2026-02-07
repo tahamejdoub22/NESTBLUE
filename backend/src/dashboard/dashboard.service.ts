@@ -927,17 +927,28 @@ export class DashboardService {
 
       // Create lookup maps
       let totalBudget = 0;
+
       for (const b of budgetSums) {
-        totalBudget += parseSum(b);
+        const amount = parseSum(b);
+        totalBudget += amount;
+        budgetMap.set(b.projectId, amount);
       }
 
       // Calculate total spent (costs + expenses)
       let totalSpent = 0;
+      const costMap = new Map<string, number>();
+
       for (const c of costSums) {
-        totalSpent += parseSum(c);
+        const amount = parseSum(c);
+        totalSpent += amount;
+        costMap.set(c.projectId, amount);
       }
+
+      const expenseMap = new Map<string, number>();
       for (const e of expenseSums) {
-        totalSpent += parseSum(e);
+        const amount = parseSum(e);
+        totalSpent += amount;
+        expenseMap.set(e.projectId, amount);
       }
 
       const remainingBudget = totalBudget - totalSpent;
@@ -948,20 +959,9 @@ export class DashboardService {
 
       // Group by project using aggregation results
       const projectBudgets = projects.map((project) => {
-        const budgetSum = budgetSums.find(
-          (b) => b.projectId === project.uid,
-        );
-        const projectBudget = budgetSum ? parseSum(budgetSum) : 0;
-
-        const costSum = costSums.find(
-          (c) => c.projectId === project.uid,
-        );
-        const projectCosts = costSum ? parseSum(costSum) : 0;
-
-        const expenseSum = expenseSums.find(
-          (e) => e.projectId === project.uid,
-        );
-        const projectExpenses = expenseSum ? parseSum(expenseSum) : 0;
+        const projectBudget = budgetMap.get(project.uid) || 0;
+        const projectCosts = costMap.get(project.uid) || 0;
+        const projectExpenses = expenseMap.get(project.uid) || 0;
 
         const projectSpent = projectCosts + projectExpenses;
         const projectRemaining = projectBudget - projectSpent;

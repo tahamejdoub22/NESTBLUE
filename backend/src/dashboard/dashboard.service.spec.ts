@@ -123,14 +123,8 @@ describe("DashboardService", () => {
         },
         { provide: getRepositoryToken(User), useValue: mockRepository },
         { provide: getRepositoryToken(Cost), useValue: mockCostsRepository },
-        {
-          provide: getRepositoryToken(Expense),
-          useValue: mockExpensesRepository,
-        },
-        {
-          provide: getRepositoryToken(Budget),
-          useValue: mockBudgetsRepository,
-        },
+        { provide: getRepositoryToken(Expense), useValue: mockExpensesRepository },
+        { provide: getRepositoryToken(Budget), useValue: mockBudgetsRepository },
         {
           provide: getRepositoryToken(Notification),
           useValue: mockNotificationsRepository,
