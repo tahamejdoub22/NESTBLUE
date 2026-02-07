@@ -9,6 +9,7 @@ jest.mock("bcrypt", () => ({
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Project } from "../projects/entities/project.entity";
 import { Task } from "../tasks/entities/task.entity";
+import { Comment } from "../tasks/entities/comment.entity";
 import { Sprint } from "../sprints/entities/sprint.entity";
 import { User } from "../users/entities/user.entity";
 import { Cost } from "../costs/entities/cost.entity";
@@ -121,9 +122,9 @@ describe("DashboardService", () => {
           useValue: mockSprintsRepository,
         },
         { provide: getRepositoryToken(User), useValue: mockRepository },
-        { provide: getRepositoryToken(Cost), useValue: mockRepository },
-        { provide: getRepositoryToken(Expense), useValue: mockRepository },
-        { provide: getRepositoryToken(Budget), useValue: mockRepository },
+        { provide: getRepositoryToken(Cost), useValue: mockCostsRepository },
+        { provide: getRepositoryToken(Expense), useValue: mockExpensesRepository },
+        { provide: getRepositoryToken(Budget), useValue: mockBudgetsRepository },
         {
           provide: getRepositoryToken(Notification),
           useValue: mockNotificationsRepository,
