@@ -78,11 +78,12 @@ export class SprintsService {
       }
 
       // Get tasks with subtasks, comments, and attachments counts
+      // Optimized: Use loadRelationCountAndMap for comments and attachments to avoid N+1 and large payload
       const tasks = await this.tasksRepository
         .createQueryBuilder("task")
         .leftJoinAndSelect("task.subtasks", "subtask")
         .leftJoinAndSelect("task.comments", "comment")
-        .leftJoinAndSelect("task.attachments", "attachment")
+        .loadRelationCountAndMap("task.attachmentCount", "task.attachments")
         .where("task.sprintId = :sprintId", { sprintId })
         .orderBy("task.createdAt", "DESC")
         .getMany();
@@ -103,7 +104,7 @@ export class SprintsService {
         startDate: task.startDate,
         subtasks: task.subtasks || [],
         comments: task.comments || [],
-        attachments: task.attachments?.length || 0,
+        attachments: (task as any).attachmentCount || 0,
         estimatedCost: task.estimatedCost,
         createdAt: task.createdAt,
         updatedAt: task.updatedAt,

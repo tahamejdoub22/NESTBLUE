@@ -159,6 +159,13 @@ export class AuthService {
       throw new BadRequestException("Invalid verification token");
     }
 
+    if (
+      user.emailVerificationExpires &&
+      user.emailVerificationExpires < new Date()
+    ) {
+      throw new BadRequestException("Verification token expired");
+    }
+
     await this.usersService.verifyEmail(user.id);
     return { message: "Email verified successfully" };
   }

@@ -19,6 +19,14 @@ describe("DashboardService - Members Population", () => {
   let service: DashboardService;
   let projectsRepositoryMock: any;
 
+  const mockQueryBuilder = {
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn().mockResolvedValue([]),
+  };
+
   beforeEach(async () => {
     projectsRepositoryMock = {
       find: jest.fn(),
@@ -35,13 +43,14 @@ describe("DashboardService - Members Population", () => {
           provide: getRepositoryToken(Task),
           useValue: {
             find: jest.fn().mockResolvedValue([]),
-            createQueryBuilder: jest.fn().mockReturnValue({
-              select: jest.fn().mockReturnThis(),
-              addSelect: jest.fn().mockReturnThis(),
-              where: jest.fn().mockReturnThis(),
-              groupBy: jest.fn().mockReturnThis(),
-              getRawMany: jest.fn().mockResolvedValue([]),
-            }),
+            createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+          },
+        },
+        {
+          provide: getRepositoryToken(Comment),
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+            createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
           },
         },
         {
@@ -54,15 +63,24 @@ describe("DashboardService - Members Population", () => {
         },
         {
           provide: getRepositoryToken(Cost),
-          useValue: { find: jest.fn().mockResolvedValue([]) },
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+            createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+          },
         },
         {
           provide: getRepositoryToken(Expense),
-          useValue: { find: jest.fn().mockResolvedValue([]) },
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+            createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+          },
         },
         {
           provide: getRepositoryToken(Budget),
-          useValue: { find: jest.fn().mockResolvedValue([]) },
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+            createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+          },
         },
         {
           provide: getRepositoryToken(Notification),

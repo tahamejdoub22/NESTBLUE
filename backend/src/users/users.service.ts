@@ -26,6 +26,7 @@ export class UsersService {
     const user = this.usersRepository.create({
       ...createUserDto,
       emailVerificationToken: crypto.randomBytes(32).toString("hex"),
+      emailVerificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     });
 
     return this.usersRepository.save(user);
@@ -73,15 +74,6 @@ export class UsersService {
     return user;
   }
 
-  async findByIds(ids: string[]): Promise<User[]> {
-    if (!ids || ids.length === 0) {
-      return [];
-    }
-    return this.usersRepository.find({
-      where: { id: In(ids) },
-    });
-  }
-
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email } });
   }
@@ -96,11 +88,6 @@ export class UsersService {
     return this.usersRepository.findOne({
       where: { passwordResetToken: token },
     });
-  }
-
-  async findByIds(ids: string[]): Promise<User[]> {
-    if (ids.length === 0) return [];
-    return this.usersRepository.find({ where: { id: In(ids) } });
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
@@ -144,6 +131,7 @@ export class UsersService {
     await this.usersRepository.update(id, {
       emailVerified: true,
       emailVerificationToken: null,
+      emailVerificationExpires: null,
     });
   }
 

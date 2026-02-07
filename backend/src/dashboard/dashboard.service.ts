@@ -490,11 +490,50 @@ export class DashboardService {
 
   private calculateProjectStatistics(tasks: Task[]) {
     const totalTasks = tasks.length;
-    const completedTasks = tasks.filter((t) => t.status === "complete").length;
-    const inProgressTasks = tasks.filter(
-      (t) => t.status === "in-progress",
-    ).length;
-    const todoTasks = tasks.filter((t) => t.status === "todo").length;
+
+    let completedTasks = 0;
+    let inProgressTasks = 0;
+    let todoTasks = 0;
+    let backlogTasks = 0;
+
+    let lowPriority = 0;
+    let mediumPriority = 0;
+    let highPriority = 0;
+    let urgentPriority = 0;
+
+    for (const t of tasks) {
+      // Status counts
+      switch (t.status) {
+        case "complete":
+          completedTasks++;
+          break;
+        case "in-progress":
+          inProgressTasks++;
+          break;
+        case "todo":
+          todoTasks++;
+          break;
+        case "backlog":
+          backlogTasks++;
+          break;
+      }
+
+      // Priority counts
+      switch (t.priority) {
+        case "low":
+          lowPriority++;
+          break;
+        case "medium":
+          mediumPriority++;
+          break;
+        case "high":
+          highPriority++;
+          break;
+        case "urgent":
+          urgentPriority++;
+          break;
+      }
+    }
 
     // Calculate progress percentage: completed + 50% of in-progress
     const progressPercentage =
@@ -517,14 +556,14 @@ export class DashboardService {
       todo: todoTasks,
       "in-progress": inProgressTasks,
       complete: completedTasks,
-      backlog: tasks.filter((t) => t.status === "backlog").length,
+      backlog: backlogTasks,
     };
 
     const priorityAnalysis = {
-      low: tasks.filter((t) => t.priority === "low").length,
-      medium: tasks.filter((t) => t.priority === "medium").length,
-      high: tasks.filter((t) => t.priority === "high").length,
-      urgent: tasks.filter((t) => t.priority === "urgent").length,
+      low: lowPriority,
+      medium: mediumPriority,
+      high: highPriority,
+      urgent: urgentPriority,
     };
 
     return {
@@ -858,7 +897,7 @@ export class DashboardService {
       const budgetUtilization =
         totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-      // Group by project using maps
+      // Group by project using aggregation results
       const projectBudgets = projects.map((project) => {
         const projectBudget = budgetMap.get(project.uid) || 0;
         const projectCosts = costMap.get(project.uid) || 0;
