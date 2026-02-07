@@ -885,11 +885,26 @@ export class DashboardService {
 
       // Calculate totals from maps
       let totalBudget = 0;
-      for (const val of budgetMap.values()) totalBudget += val;
+      for (const item of budgetSums) {
+        const val = parseSum(item);
+        totalBudget += val;
+        budgetMap.set(item.projectId, val);
+      }
 
       let totalSpent = 0;
-      for (const val of costMap.values()) totalSpent += val;
-      for (const val of expenseMap.values()) totalSpent += val;
+      const costMap = new Map<string, number>();
+      for (const item of costSums) {
+        const val = parseSum(item);
+        totalSpent += val;
+        costMap.set(item.projectId, val);
+      }
+
+      const expenseMap = new Map<string, number>();
+      for (const item of expenseSums) {
+        const val = parseSum(item);
+        totalSpent += val;
+        expenseMap.set(item.projectId, val);
+      }
 
       const remainingBudget = totalBudget - totalSpent;
 
@@ -1079,15 +1094,47 @@ export class DashboardService {
     const now = new Date();
     const data = [];
 
+    // Pre-calculate dates for the 14-day window
+    const dates = [];
     for (let i = 0; i < days; i++) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - (days - i));
-      const remaining = tasks.filter(
-        (t) =>
-          t.status !== "complete" &&
-          (!t.createdAt || new Date(t.createdAt) <= date),
-      ).length;
-      const ideal = Math.max(0, tasks.length - (tasks.length / days) * i);
+      const d = new Date(now);
+      d.setDate(d.getDate() - (days - i));
+      dates.push(d);
+    }
+
+    // Filter tasks that are not complete (status check is constant)
+    const activeTasks = tasks.filter((t) => t.status !== "complete");
+
+    // Tasks with no createdAt always count for all days
+    const noDateCount = activeTasks.filter((t) => !t.createdAt).length;
+
+    // For tasks with createdAt, we only count them if createdAt <= date.
+    // Convert all createdAt to timestamps once and sort.
+    const datedTaskTimes = activeTasks
+      .filter((t) => t.createdAt)
+      .map((t) => new Date(t.createdAt).getTime())
+      .sort((a, b) => a - b);
+
+    let currentTaskIdx = 0;
+    const totalTasks = tasks.length;
+
+    for (let i = 0; i < days; i++) {
+      const date = dates[i];
+      const thresholdTime = date.getTime();
+
+      // Move the index forward to include all tasks created on or before this date
+      while (
+        currentTaskIdx < datedTaskTimes.length &&
+        datedTaskTimes[currentTaskIdx] <= thresholdTime
+      ) {
+        currentTaskIdx++;
+      }
+
+      // Total remaining = (tasks with no date) + (tasks with date <= current date)
+      const remaining = noDateCount + currentTaskIdx;
+
+      // Ideal burn down calculation
+      const ideal = Math.max(0, totalTasks - (totalTasks / days) * i);
 
       data.push({
         date,
