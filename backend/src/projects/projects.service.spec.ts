@@ -35,8 +35,8 @@ const mockProjectMember = {
 
 describe("ProjectsService", () => {
   let service: ProjectsService;
-  let projectRepo: Repository<Project>;
-  let memberRepo: Repository<ProjectMember>;
+  let projectsRepository: Repository<Project>;
+  let projectMembersRepository: Repository<ProjectMember>;
   let usersService: UsersService;
 
   const mockProject = {

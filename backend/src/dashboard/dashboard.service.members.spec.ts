@@ -1,19 +1,20 @@
-import { Test, TestingModule } from '@nestjs/testing';
-jest.mock('bcrypt', () => ({
+import { Test, TestingModule } from "@nestjs/testing";
+jest.mock("bcrypt", () => ({
   hash: jest.fn(),
   compare: jest.fn(),
   genSalt: jest.fn(),
 }));
-import { DashboardService } from './dashboard.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Project } from '../projects/entities/project.entity';
-import { Task } from '../tasks/entities/task.entity';
-import { Sprint } from '../sprints/entities/sprint.entity';
-import { User } from '../users/entities/user.entity';
-import { Cost } from '../costs/entities/cost.entity';
-import { Expense } from '../expenses/entities/expense.entity';
-import { Budget } from '../budgets/entities/budget.entity';
-import { Notification } from '../notifications/entities/notification.entity';
+import { DashboardService } from "./dashboard.service";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Project } from "../projects/entities/project.entity";
+import { Task } from "../tasks/entities/task.entity";
+import { Comment } from "../tasks/entities/comment.entity";
+import { Sprint } from "../sprints/entities/sprint.entity";
+import { User } from "../users/entities/user.entity";
+import { Cost } from "../costs/entities/cost.entity";
+import { Expense } from "../expenses/entities/expense.entity";
+import { Budget } from "../budgets/entities/budget.entity";
+import { Notification } from "../notifications/entities/notification.entity";
 
 describe("DashboardService - Members Population", () => {
   let service: DashboardService;
@@ -39,6 +40,17 @@ describe("DashboardService - Members Population", () => {
               select: jest.fn().mockReturnThis(),
               addSelect: jest.fn().mockReturnThis(),
               where: jest.fn().mockReturnThis(),
+              groupBy: jest.fn().mockReturnThis(),
+              getRawMany: jest.fn().mockResolvedValue([]),
+            }),
+          },
+        },
+        {
+          provide: getRepositoryToken(Comment),
+          useValue: {
+            createQueryBuilder: jest.fn().mockReturnValue({
+              select: jest.fn().mockReturnThis(),
+              addSelect: jest.fn().mockReturnThis(),
               groupBy: jest.fn().mockReturnThis(),
               getRawMany: jest.fn().mockResolvedValue([]),
             }),
