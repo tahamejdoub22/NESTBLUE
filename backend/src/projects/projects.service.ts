@@ -165,6 +165,72 @@ export class ProjectsService {
     );
   }
 
+  async inviteMembers(
+    projectUid: string,
+    inviteDto: InviteMembersDto,
+    inviterId: string,
+  ): Promise<ProjectMember[]> {
+    if (!inviteDto.userIds || inviteDto.userIds.length === 0) {
+      throw new BadRequestException("At least one user ID is required");
+    }
+
+    const userIds = [...new Set(inviteDto.userIds)];
+    await this.validateInvitePermissions(projectUid, inviterId);
+
+    const userIds = [...new Set(inviteDto.userIds)];
+    const role = inviteDto.role || ProjectMemberRole.MEMBER;
+
+    // Fetch all users and existing members in bulk
+    const [users, existingMembers] = await Promise.all([
+      this.usersService.findByIds(userIds),
+      this.projectMembersRepository.find({
+        where: {
+          projectUid,
+          userId: In(userIds),
+        },
+      }),
+    ]);
+
+    const foundUserIds = new Set(users.map((u) => u.id));
+    const existingMemberIds = new Set(existingMembers.map((m) => m.userId));
+
+    const newMembersData: ProjectMember[] = [];
+    const errors: string[] = [];
+
+    for (const userId of userIds) {
+      if (!foundUserIds.has(userId)) {
+        errors.push(
+          `Failed to invite user ${userId}: User with ID ${userId} not found`,
+        );
+        continue;
+      }
+
+      if (existingMemberIds.has(userId)) {
+        continue;
+      }
+
+      newMembersData.push(
+        this.projectMembersRepository.create({
+          projectUid,
+          userId,
+          role,
+          invitedById: inviterId,
+        }),
+      );
+    }
+
+    let results: ProjectMember[] = [];
+    if (newMembersData.length > 0) {
+      results = await this.projectMembersRepository.save(newMembersData);
+    }
+
+    if (results.length === 0 && errors.length > 0) {
+      throw new BadRequestException(
+        `Failed to invite any members: ${errors.join("; ")}`,
+      );
+    }
+  }
+
   private async validateInvitePermissions(
     projectUid: string,
     inviterId: string,
