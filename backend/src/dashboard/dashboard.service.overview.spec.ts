@@ -1,23 +1,23 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { DashboardService } from './dashboard.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Project } from '../projects/entities/project.entity';
-import { Task } from '../tasks/entities/task.entity';
-import { Sprint } from '../sprints/entities/sprint.entity';
-import { User } from '../users/entities/user.entity';
-import { Cost } from '../costs/entities/cost.entity';
-import { Expense } from '../expenses/entities/expense.entity';
-import { Budget } from '../budgets/entities/budget.entity';
-import { Notification } from '../notifications/entities/notification.entity';
-import { Repository } from 'typeorm';
+import { Test, TestingModule } from "@nestjs/testing";
+import { DashboardService } from "./dashboard.service";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Project } from "../projects/entities/project.entity";
+import { Task } from "../tasks/entities/task.entity";
+import { Sprint } from "../sprints/entities/sprint.entity";
+import { User } from "../users/entities/user.entity";
+import { Cost } from "../costs/entities/cost.entity";
+import { Expense } from "../expenses/entities/expense.entity";
+import { Budget } from "../budgets/entities/budget.entity";
+import { Notification } from "../notifications/entities/notification.entity";
+import { Repository } from "typeorm";
 
 // Mock bcrypt to avoid native binding errors
-jest.mock('bcrypt', () => ({
-  hash: jest.fn().mockResolvedValue('hashed_password'),
+jest.mock("bcrypt", () => ({
+  hash: jest.fn().mockResolvedValue("hashed_password"),
   compare: jest.fn().mockResolvedValue(true),
 }));
 
-describe('DashboardService - getMonthlyProjectOverview', () => {
+describe("DashboardService - getMonthlyProjectOverview", () => {
   let service: DashboardService;
   let tasksRepository: Repository<Task>;
   let projectsRepository: Repository<Project>;
@@ -50,7 +50,10 @@ describe('DashboardService - getMonthlyProjectOverview', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardService,
-        { provide: getRepositoryToken(Project), useValue: mockProjectsRepository },
+        {
+          provide: getRepositoryToken(Project),
+          useValue: mockProjectsRepository,
+        },
         { provide: getRepositoryToken(Task), useValue: mockTasksRepository },
         { provide: getRepositoryToken(Sprint), useValue: mockRepository },
         { provide: getRepositoryToken(User), useValue: mockRepository },
@@ -68,7 +71,7 @@ describe('DashboardService - getMonthlyProjectOverview', () => {
     jest.clearAllMocks();
   });
 
-  it('should return correct overview data using optimized count queries', async () => {
+  it("should return correct overview data using optimized count queries", async () => {
     // Mock Projects Count
     mockProjectsRepository.count.mockResolvedValue(1);
 
@@ -88,18 +91,20 @@ describe('DashboardService - getMonthlyProjectOverview', () => {
     // i=2 (2 months ago): Total 2, Completed 1
     // i=1 (1 month ago):  Total 2, Completed 2
     mockQueryBuilder.getCount
-      .mockResolvedValueOnce(0).mockResolvedValueOnce(0) // i=4
-      .mockResolvedValueOnce(0).mockResolvedValueOnce(0) // i=3
-      .mockResolvedValueOnce(2).mockResolvedValueOnce(1) // i=2
-      .mockResolvedValueOnce(2).mockResolvedValueOnce(2); // i=1
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0) // i=4
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0) // i=3
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(1) // i=2
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(2); // i=1
 
     // Mock count() for Current Month (i=0)
     // First call: total (4). Second call: completed (2).
-    mockTasksRepository.count
-      .mockResolvedValueOnce(4)
-      .mockResolvedValueOnce(2);
+    mockTasksRepository.count.mockResolvedValueOnce(4).mockResolvedValueOnce(2);
 
-    const result = await service.getMonthlyProjectOverview('user1', 'month');
+    const result = await service.getMonthlyProjectOverview("user1", "month");
 
     // Verify find() was NOT called
     expect(mockTasksRepository.find).not.toHaveBeenCalled();

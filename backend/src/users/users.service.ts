@@ -73,15 +73,6 @@ export class UsersService {
     return user;
   }
 
-  async findByIds(ids: string[]): Promise<User[]> {
-    if (!ids || ids.length === 0) {
-      return [];
-    }
-    return this.usersRepository.find({
-      where: { id: In(ids) },
-    });
-  }
-
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email } });
   }
@@ -96,11 +87,6 @@ export class UsersService {
     return this.usersRepository.findOne({
       where: { passwordResetToken: token },
     });
-  }
-
-  async findByIds(ids: string[]): Promise<User[]> {
-    if (ids.length === 0) return [];
-    return this.usersRepository.find({ where: { id: In(ids) } });
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
