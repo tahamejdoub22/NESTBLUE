@@ -61,14 +61,14 @@ describe("AuthController Rate Limiting", () => {
     expect(guards).toContain(RateLimiterGuard);
   });
 
-  it('should have RateLimiterGuard on resetPassword', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.resetPassword);
+  it("should have RateLimiterGuard on resetPassword", () => {
+    const guards = reflector.get<any[]>("__guards__", controller.resetPassword);
     expect(guards).toBeDefined();
     expect(guards.some((guard) => guard === RateLimiterGuard)).toBe(true);
   });
 
-  it('should have RateLimiterGuard on verifyEmail', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.verifyEmail);
+  it("should have RateLimiterGuard on verifyEmail", () => {
+    const guards = reflector.get<any[]>("__guards__", controller.verifyEmail);
     expect(guards).toBeDefined();
     expect(guards.some((guard) => guard === RateLimiterGuard)).toBe(true);
   });

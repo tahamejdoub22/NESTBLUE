@@ -91,7 +91,7 @@ export class ProjectsService {
         });
 
         if (!member) {
-          throw new ForbiddenException('Access denied');
+          throw new ForbiddenException("Access denied");
         }
       }
 
@@ -138,7 +138,10 @@ export class ProjectsService {
   }
 
   // Team Members
-  async getProjectMembers(projectUid: string, checkAccessForUserId?: string): Promise<ProjectMember[]> {
+  async getProjectMembers(
+    projectUid: string,
+    checkAccessForUserId?: string,
+  ): Promise<ProjectMember[]> {
     await this.findOne(projectUid, checkAccessForUserId); // Verify project exists and check access
     return this.projectMembersRepository.find({
       where: { projectUid },
@@ -196,7 +199,9 @@ export class ProjectsService {
 
     for (const userId of userIds) {
       if (!foundUserIds.has(userId)) {
-        errors.push(`Failed to invite user ${userId}: User with ID ${userId} not found`);
+        errors.push(
+          `Failed to invite user ${userId}: User with ID ${userId} not found`,
+        );
         continue;
       }
 
@@ -220,7 +225,9 @@ export class ProjectsService {
     }
 
     if (results.length === 0 && errors.length > 0) {
-      throw new BadRequestException(`Failed to invite any members: ${errors.join('; ')}`);
+      throw new BadRequestException(
+        `Failed to invite any members: ${errors.join("; ")}`,
+      );
     }
   }
 
