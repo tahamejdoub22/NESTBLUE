@@ -21,14 +21,20 @@ describe('SprintsService', () => {
     update: jest.fn(),
   };
 
+  const createQueryBuilderMock = {
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    loadRelationCountAndMap: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    getMany: jest.fn(),
+    getCount: jest.fn().mockResolvedValue(5),
+  };
+
   const mockTasksRepository = {
     find: jest.fn(),
     count: jest.fn(),
-    createQueryBuilder: jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getCount: jest.fn().mockResolvedValue(5),
-    })),
+    createQueryBuilder: jest.fn(() => createQueryBuilderMock),
   };
 
   beforeEach(async () => {
@@ -53,6 +59,9 @@ describe('SprintsService', () => {
     tasksRepository = module.get<Repository<Task>>(getRepositoryToken(Task));
 
     jest.clearAllMocks();
+    createQueryBuilderMock.leftJoinAndSelect.mockClear();
+    createQueryBuilderMock.loadRelationCountAndMap.mockClear();
+    createQueryBuilderMock.getMany.mockClear();
   });
 
   describe("findAll", () => {
@@ -110,6 +119,37 @@ describe('SprintsService', () => {
         taskCount: 10,
         completedTaskCount: 5, // from mocked query builder
       });
+    });
+  });
+
+  describe("getSprintTasks", () => {
+    it("should use loadRelationCountAndMap for attachments instead of leftJoinAndSelect", async () => {
+      const sprintId = "test-sprint";
+      const mockSprint = { id: sprintId };
+      const mockTasks = [
+        {
+          uid: "task-1",
+          subtasks: [],
+          comments: [],
+          attachmentCount: 3, // Mocked result from loadRelationCountAndMap
+          attachments: undefined // Should be undefined or ignored as it's not loaded
+        }
+      ];
+
+      mockSprintsRepository.findOne.mockResolvedValue(mockSprint);
+      createQueryBuilderMock.getMany.mockResolvedValue(mockTasks);
+
+      const result = await service.getSprintTasks(sprintId);
+
+      expect(createQueryBuilderMock.leftJoinAndSelect).toHaveBeenCalledWith("task.subtasks", "subtask");
+      expect(createQueryBuilderMock.leftJoinAndSelect).toHaveBeenCalledWith("task.comments", "comment");
+
+      // Verify optimization:
+      expect(createQueryBuilderMock.leftJoinAndSelect).not.toHaveBeenCalledWith("task.attachments", "attachment");
+      expect(createQueryBuilderMock.loadRelationCountAndMap).toHaveBeenCalledWith("task.attachmentCount", "task.attachments");
+
+      // Verify mapping
+      expect(result[0].attachments).toBe(3);
     });
   });
 });
