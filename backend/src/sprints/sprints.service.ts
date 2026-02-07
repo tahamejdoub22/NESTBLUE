@@ -78,6 +78,7 @@ export class SprintsService {
       }
 
       // Get tasks with subtasks, comments, and attachments counts
+      // Optimized: Use loadRelationCountAndMap for comments and attachments to avoid N+1 and large payload
       const tasks = await this.tasksRepository
         .createQueryBuilder("task")
         .leftJoinAndSelect("task.subtasks", "subtask")

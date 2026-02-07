@@ -5,7 +5,6 @@ import { ForbiddenException } from "@nestjs/common";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { Conversation } from "./entities/conversation.entity";
 import { Message } from "./entities/message.entity";
-import { ForbiddenException } from "@nestjs/common";
 
 jest.mock("bcrypt", () => ({
   hash: jest.fn().mockResolvedValue("hashed_password"),

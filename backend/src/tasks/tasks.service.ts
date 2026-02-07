@@ -147,11 +147,11 @@ export class TasksService {
     }
   }
 
-  async findOne(uid: string): Promise<Task> {
+  async findOne(uid: string, options: { relations?: string[] } = {}): Promise<Task> {
     try {
       const task = await this.tasksRepository.findOne({
         where: { uid },
-        relations: [], // Simplified - don't load relations to avoid circular dependencies
+        relations: options.relations || [],
       });
 
       if (!task) {
