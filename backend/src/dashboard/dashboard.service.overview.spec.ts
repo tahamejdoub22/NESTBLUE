@@ -1,23 +1,24 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { DashboardService } from './dashboard.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Project } from '../projects/entities/project.entity';
-import { Task } from '../tasks/entities/task.entity';
-import { Sprint } from '../sprints/entities/sprint.entity';
-import { User } from '../users/entities/user.entity';
-import { Cost } from '../costs/entities/cost.entity';
-import { Expense } from '../expenses/entities/expense.entity';
-import { Budget } from '../budgets/entities/budget.entity';
-import { Notification } from '../notifications/entities/notification.entity';
-import { Repository } from 'typeorm';
+import { Test, TestingModule } from "@nestjs/testing";
+import { DashboardService } from "./dashboard.service";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Project } from "../projects/entities/project.entity";
+import { Task } from "../tasks/entities/task.entity";
+import { Comment } from "../tasks/entities/comment.entity";
+import { Sprint } from "../sprints/entities/sprint.entity";
+import { User } from "../users/entities/user.entity";
+import { Cost } from "../costs/entities/cost.entity";
+import { Expense } from "../expenses/entities/expense.entity";
+import { Budget } from "../budgets/entities/budget.entity";
+import { Notification } from "../notifications/entities/notification.entity";
+import { Repository } from "typeorm";
 
 // Mock bcrypt to avoid native binding errors
-jest.mock('bcrypt', () => ({
-  hash: jest.fn().mockResolvedValue('hashed_password'),
+jest.mock("bcrypt", () => ({
+  hash: jest.fn().mockResolvedValue("hashed_password"),
   compare: jest.fn().mockResolvedValue(true),
 }));
 
-describe('DashboardService - getMonthlyProjectOverview', () => {
+describe("DashboardService - getMonthlyProjectOverview", () => {
   let service: DashboardService;
   let tasksRepository: Repository<Task>;
   let projectsRepository: Repository<Project>;
@@ -50,8 +51,12 @@ describe('DashboardService - getMonthlyProjectOverview', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardService,
-        { provide: getRepositoryToken(Project), useValue: mockProjectsRepository },
+        {
+          provide: getRepositoryToken(Project),
+          useValue: mockProjectsRepository,
+        },
         { provide: getRepositoryToken(Task), useValue: mockTasksRepository },
+        { provide: getRepositoryToken(Comment), useValue: mockRepository },
         { provide: getRepositoryToken(Sprint), useValue: mockRepository },
         { provide: getRepositoryToken(User), useValue: mockRepository },
         { provide: getRepositoryToken(Cost), useValue: mockRepository },
@@ -68,55 +73,90 @@ describe('DashboardService - getMonthlyProjectOverview', () => {
     jest.clearAllMocks();
   });
 
-  it('should return correct overview data using optimized count queries', async () => {
-    // Mock Projects Count
+  it("should return correct overview data using in-memory aggregation", async () => {
+    // Mock Projects
     mockProjectsRepository.count.mockResolvedValue(1);
+    mockProjectsRepository.find.mockResolvedValue([{ uid: "p1" }]);
 
-    // Mock createQueryBuilder for past months
-    const mockQueryBuilder = {
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orWhere: jest.fn().mockReturnThis(),
-      getCount: jest.fn(),
+    // Helper to get date X months ago
+    const getDate = (monthsAgo: number) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - monthsAgo);
+      return d;
     };
-    mockTasksRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
-    // Mock sequence of returns for past months
-    // Loop runs 4 times for past months (i=4,3,2,1). Each iteration calls getCount twice (total, completed).
-    // i=4 (4 months ago): Total 0, Completed 0
-    // i=3 (3 months ago): Total 0, Completed 0
+    // Create tasks matching the expectations:
     // i=2 (2 months ago): Total 2, Completed 1
     // i=1 (1 month ago):  Total 2, Completed 2
-    mockQueryBuilder.getCount
-      .mockResolvedValueOnce(0).mockResolvedValueOnce(0) // i=4
-      .mockResolvedValueOnce(0).mockResolvedValueOnce(0) // i=3
-      .mockResolvedValueOnce(2).mockResolvedValueOnce(1) // i=2
-      .mockResolvedValueOnce(2).mockResolvedValueOnce(2); // i=1
+    // i=0 (Current):      Total 4, Completed 2 (Note: Current month aggregates differently in code, showing ALL tasks usually?)
 
-    // Mock count() for Current Month (i=0)
-    // First call: total (4). Second call: completed (2).
-    mockTasksRepository.count
-      .mockResolvedValueOnce(4)
-      .mockResolvedValueOnce(2);
+    // Wait, the code says:
+    // Current Month: "Show ALL tasks from ALL projects"
+    // Past Months: "Show tasks created or completed in that month"
 
-    const result = await service.getMonthlyProjectOverview('user1', 'month');
+    // If I want:
+    // 2 months ago: 2 created
+    const tasks = [
+      // 2 months ago: 2 tasks created, 1 completed
+      {
+        uid: "t1",
+        projectId: "p1",
+        status: "todo",
+        createdAt: getDate(2),
+        updatedAt: getDate(2),
+      },
+      {
+        uid: "t2",
+        projectId: "p1",
+        status: "complete",
+        createdAt: getDate(2),
+        updatedAt: getDate(2),
+      },
 
-    // Verify find() was NOT called
-    expect(mockTasksRepository.find).not.toHaveBeenCalled();
+      // 1 month ago: 2 tasks created, 2 completed
+      {
+        uid: "t3",
+        projectId: "p1",
+        status: "complete",
+        createdAt: getDate(1),
+        updatedAt: getDate(1),
+      },
+      {
+        uid: "t4",
+        projectId: "p1",
+        status: "complete",
+        createdAt: getDate(1),
+        updatedAt: getDate(1),
+      },
 
-    // Verify Array Length
+      // Current month: Code sums ALL tasks for current month.
+      // So if I have total 4 tasks in the DB, current month should show 4.
+      // And completed count: t2, t3, t4 = 3 completed.
+    ];
+
+    mockTasksRepository.find.mockResolvedValue(tasks);
+
+    const result = await service.getMonthlyProjectOverview("user1", "month");
+
+    // Verify find() WAS called
+    expect(mockTasksRepository.find).toHaveBeenCalled();
+
+    // Verify Array Length (last 5 months)
     expect(result).toHaveLength(5);
 
-    // Check values match expected counts
     const currentMonthData = result[4];
+    // Current month sums ALL tasks: 4 total
     expect(currentMonthData.total).toBe(4);
-    expect(currentMonthData.completed).toBe(2);
+    // Completed: t2, t3, t4 are complete => 3
+    expect(currentMonthData.completed).toBe(3);
 
-    const lastMonthData = result[3];
-    expect(lastMonthData.total).toBe(2);
-    expect(lastMonthData.completed).toBe(2);
+    const oneMonthAgoData = result[3];
+    // 1 month ago: t3, t4 created
+    expect(oneMonthAgoData.total).toBe(2);
+    expect(oneMonthAgoData.completed).toBe(2);
 
     const twoMonthsAgoData = result[2];
+    // 2 months ago: t1, t2 created
     expect(twoMonthsAgoData.total).toBe(2);
     expect(twoMonthsAgoData.completed).toBe(1);
   });
