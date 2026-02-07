@@ -965,7 +965,6 @@ export class DashboardService {
       const parseSum = (item: any) => (item.total ? parseFloat(item.total) : 0);
 
       // Create lookup maps
-      const budgetMap = new Map<string, number>();
       let totalBudget = 0;
       for (const item of budgetSums) {
         const val = parseSum(item);
@@ -994,7 +993,7 @@ export class DashboardService {
       const budgetUtilization =
         totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-      // Group by project using maps
+      // Group by project using aggregation results
       const projectBudgets = projects.map((project) => {
         const projectBudget = budgetMap.get(project.uid) || 0;
         const projectCosts = costMap.get(project.uid) || 0;

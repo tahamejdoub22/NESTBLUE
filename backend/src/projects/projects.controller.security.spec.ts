@@ -1,4 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
+// Mock bcrypt before imports
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
 import { ProjectsController } from "./projects.controller";
 import { ProjectsService } from "./projects.service";
 import { TasksService } from "../tasks/tasks.service";

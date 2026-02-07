@@ -1,4 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
+// Mock bcrypt before imports
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+  genSalt: jest.fn(),
+}));
 import { AuthController } from "./auth.controller";
 import { RateLimiterGuard } from "../common/guards/rate-limiter.guard";
 import { Reflector } from "@nestjs/core";
@@ -61,14 +67,14 @@ describe("AuthController Rate Limiting", () => {
     expect(guards).toContain(RateLimiterGuard);
   });
 
-  it('should have RateLimiterGuard on resetPassword', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.resetPassword);
+  it("should have RateLimiterGuard on resetPassword", () => {
+    const guards = reflector.get<any[]>("__guards__", controller.resetPassword);
     expect(guards).toBeDefined();
     expect(guards.some((guard) => guard === RateLimiterGuard)).toBe(true);
   });
 
-  it('should have RateLimiterGuard on verifyEmail', () => {
-    const guards = reflector.get<any[]>('__guards__', controller.verifyEmail);
+  it("should have RateLimiterGuard on verifyEmail", () => {
+    const guards = reflector.get<any[]>("__guards__", controller.verifyEmail);
     expect(guards).toBeDefined();
     expect(guards.some((guard) => guard === RateLimiterGuard)).toBe(true);
   });
